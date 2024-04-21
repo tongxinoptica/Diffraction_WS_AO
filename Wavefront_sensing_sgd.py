@@ -10,22 +10,22 @@ from unit import creat_obj
 from skimage import draw
 
 device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
-mask_size = (1000, 1000)
 lambda_ = 532e-9  # mm
 pi = torch.tensor(torch.pi, dtype=torch.float64)
 k = (2 * pi / lambda_)
 dx = 8e-6  # m
 d0 = 0.05  # m
 size = 1000
+mask_size = (size, size)
 Zer_radius = 500
-pupil_radium = 300
+pupil_radium = 200
 n_max = 15
 f1 = 0.1
 f2 = 0.1
 
 # Input pupil
 in_pupil = torch.zeros(mask_size, dtype=torch.float64)
-rr, cc = draw.disk((size / 2.5, size / 2), radius=pupil_radium)
+rr, cc = draw.disk((size / 2, size / 2), radius=pupil_radium)
 in_pupil[rr, cc] = 1.0
 
 x = torch.linspace(-size / 2, size / 2, size, dtype=torch.float64) * dx
@@ -35,21 +35,30 @@ rho = torch.sqrt(X ** 2 + Y ** 2)
 mask = rho > dx * pupil_radium
 rho[mask] = 0.0
 
+Oblique = True
+if Oblique:
+    incident_angle = torch.tensor(1.0, dtype=torch.float64)
+    phase_gradient = k * torch.sin(torch.deg2rad(incident_angle)) * Y
+    in_pupil = in_pupil * torch.exp(1j * phase_gradient)
+
+
 obj_field = in_pupil.unsqueeze(0).unsqueeze(0).to(device)
 free_d0 = Diffraction_propagation(obj_field, f1, dx, lambda_).to(device)
 free_d0_amp = get_amplitude(free_d0)
 free_d0_ph = get_phase(free_d0)
-plt.imshow(free_d0_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
-plt.show()
+# plt.imshow(free_d0_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
+# plt.show()
+# plt.imshow(free_d0_ph.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
+# plt.show()
 len1_phs = lens_phase(X, Y, k, f1).to(device)  # lens1 phase
 new_ph = get_0_2pi(free_d0_ph - len1_phs)
 free_d1_field = get_hologram(free_d0_amp, new_ph)
 
-free_d1 = Diffraction_propagation(free_d1_field, f1, dx, lambda_)
+free_d1 = Diffraction_propagation(free_d1_field, f1+1*f2, dx, lambda_)
 free_d1_amp = get_amplitude(free_d1)
 free_d1_ph = get_phase(free_d1)
-plt.imshow(free_d1_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
-plt.show()
+# plt.imshow(free_d1_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
+# plt.show()
 
 len2_phs = lens_phase(X, Y, k, f2).to(device)  # lens2 phase
 new_ph = get_0_2pi(free_d1_ph - len2_phs)
@@ -57,8 +66,8 @@ free_d2_field = get_hologram(free_d1_amp, new_ph)
 free_d2 = Diffraction_propagation(free_d2_field, f2, dx, lambda_)
 free_d2_amp = get_amplitude(free_d2)
 free_d2_ph = get_phase(free_d2)  # 0-2pi
-# plt.imshow(free_d2_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
-# plt.show()
+plt.imshow(free_d2_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
+plt.show()
 plt.imshow(free_d2_ph.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
 plt.title('4f phase')
 plt.show()
