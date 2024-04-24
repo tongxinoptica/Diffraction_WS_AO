@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage import draw
 from tqdm import tqdm
-
+import torch.nn.functional as F
 from Diffraction_H import lens_phase, Diffraction_propagation, get_phase, get_amplitude, get_hologram, get_0_2pi
 from Zernike import zernike_phase
 from unit import creat_obj, phasemap_8bit
@@ -26,7 +26,7 @@ size = 1000  #
 dx = 8e-6  #
 sample_path = 'test_img/grid_10.png'
 if_obj = False
-Add_zernike = False
+Add_zernike = True
 slm = False
 phase_correct = False
 SGD_correct = False
@@ -36,7 +36,7 @@ SGD_correct = False
 # else:
 #     d3 = 1 * f
 
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Create object and binary
 obj = creat_obj(sample_path, size, radius=radius, binaty_inv=0, if_obj=if_obj)  # 0: Inverse; 1: NoInverse; 2: None
@@ -72,11 +72,16 @@ free_d1_ph = get_phase(free_d1)
 
 if Add_zernike:
     # Propagate abe to lens2
-    zer = zernike_phase(size, dx, n_max=15, radius=radius, intensity=9).unsqueeze(0)  # 0-2pi
-    plt.imshow(zer.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
-    plt.title('Aberration')
-    plt.show()
-    imageio.imwrite('./test_img/zer.png', phasemap_8bit(zer))
+    zer = zernike_phase(size, dx, n_max=15, radius=radius, intensity=1).unsqueeze(0)  # 0-2pi
+    # padding_left = 460
+    # padding_right = 460
+    # padding_top = 40
+    # padding_bottom = 40
+    # zer = F.pad(zer, (padding_left, padding_right, padding_top, padding_bottom), "constant", 0)
+    # plt.imshow(zer.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
+    # plt.title('Aberration')
+    # plt.show()
+    # imageio.imwrite('./test_img/4.23_zernike3.png', phasemap_8bit(zer))
     zer_phase = get_0_2pi(zer + free_d1_ph)
 
     zer_field = free_d1_amp * torch.exp(1j * zer_phase)

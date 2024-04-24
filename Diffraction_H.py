@@ -8,7 +8,7 @@ from PIL import Image
 from unit import to_mseloss, to_ssim, to_pearson, to_psnr
 import torch.nn.functional as F
 
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def Diffraction_propagation(field, distance, dx, wavelength, transfer_fun='Angular Spectrum'):

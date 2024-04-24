@@ -32,7 +32,7 @@ def zernike(n, m, rho, theta):
 
 
 def generate_zer_poly(size, dx, n_max, radius):
-    zer_path = 'parameter/zernike_stack_{}.pth'.format(n_max)
+    zer_path = 'parameter/zernike_stack_{}_{}.pth'.format(n_max, radius)
     if os.path.exists(zer_path):
         zernike_stack = torch.load(zer_path)
         zer_num = zernike_stack.shape[0]
@@ -57,23 +57,23 @@ def generate_zer_poly(size, dx, n_max, radius):
         zer_num = len(zernike_list)
         print('Zernike coefficient number: {}'.format(zer_num))
         zernike_stack = torch.stack(zernike_list, dim=0)  # Stack along the new axis
-        torch.save(zernike_stack, './parameter/zernike_stack_{}.pth'.format(n_max))
+        torch.save(zernike_stack, './parameter/zernike_stack_{}_{}.pth'.format(n_max, radius))
 
     return zernike_stack, zer_num
 
 
 def zernike_phase(size, dx, n_max, radius, intensity):
     zernike_stack, zer_num = generate_zer_poly(size=size, dx=dx, n_max=n_max, radius=radius)
-    random_coeffs = torch.rand(zer_num, 1, 1, 1, dtype=torch.float64) * intensity + 1
+    random_coeffs = torch.rand(zer_num, 1, 1, 1, dtype=torch.float64) * intensity
     zernike_phase = (random_coeffs * zernike_stack).sum(dim=0)
     zernike_phase = zernike_phase % (2 * torch.pi)
     return zernike_phase
 
 #
-radius = 500
-size = 1000
-dx = 8e-6
-generate_zer_poly(size,dx,15,radius)
+# radius = 500
+# size = 1000
+# dx = 8e-6
+# generate_zer_poly(size,dx,15,radius)
 # zer_path = 'parameter/zernike_stack_15.pth'
 # zernike_stack = torch.load(zer_path)
 # zer_num = zernike_stack.shape[0]
