@@ -36,9 +36,9 @@ legend show;
 clc; clear
 ref = imread("test_img\exp\8.5\0047.bmp");
 ref = im2double(rgb2gray(ref));
-ref = imrotate(ref, 0.2);
+ref = imrotate(ref, 0.18);
 ref = ref / max(max(ref));
-ref = ref(369:1039,315:985);
+ref = ref(150:1255,96:1198);
 figure(1)
 imshow(ref)
 imwrite(ref,"test_img\exp\ref.bmp", "bmp")
@@ -46,15 +46,15 @@ abe = imread("test_img\exp\z1\0038.bmp");
 abe = im2double(rgb2gray(abe));
 abe = imrotate(abe, 0.2);
 abe = abe / max(max(abe));
-abe = abe(369:1039,315:985);
+abe = abe(150:1255,96:1198);
 figure(2)
 imshow(abe)
-imwrite(abe,"test_img\exp\abe.bmp", "bmp")
+imwrite(abe,"test_img\exp\abe1.bmp", "bmp")
 src = imread("test_img\exp\0.00\0032.bmp");
 src = im2double(rgb2gray(src));
-src = imrotate(src, 0.2);
+src = imrotate(src, 0.25);
 src = src / max(max(src));
-src = src(320:990,300:970);
+src = src(100:1210,80:1190);
 figure(3)
 imshow(src)
 imwrite(src,"test_img\exp\src.bmp", "bmp")
