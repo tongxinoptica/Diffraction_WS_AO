@@ -122,3 +122,35 @@ def phasemap_8bit(phasemap, inverted=False):
 # padding_bottom = 40
 # sample_padded = np.pad(test, ((padding_top, padding_bottom), (padding_left, padding_right)), 'constant', constant_values=(0, 0))
 # cv2.imwrite('test_img/grid_4_slm.png', sample_padded)
+
+def gaussian_window(size, sigma):
+    """生成一个2D高斯窗口"""
+    coords = torch.arange(size, dtype=torch.float64)
+    coords -= size // 2
+    g = coords ** 2
+    g = (-g / (2.0 * sigma ** 2)).exp()
+    g /= g.sum()
+    return g.outer(g)
+
+def twossim(img1, img2, window_size=11, sigma=1.5, size_average=True):
+    """计算两个图像之间的SSIM指数"""
+    C1 = 0.01**2
+    C2 = 0.03**2
+
+    window = gaussian_window(window_size, sigma).to(img1.device)
+    window = window.expand(1, 1, window_size, window_size)
+
+    mu1 = F.conv2d(img1.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1)
+    mu2 = F.conv2d(img2.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1)
+
+    mu1_sq = mu1.pow(2)
+    mu2_sq = mu2.pow(2)
+    mu1_mu2 = mu1 * mu2
+
+    sigma1_sq = F.conv2d(img1.unsqueeze(0).unsqueeze(0) * img1.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1) - mu1_sq
+    sigma2_sq = F.conv2d(img2.unsqueeze(0).unsqueeze(0) * img2.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1) - mu2_sq
+    sigma12 = F.conv2d(img1.unsqueeze(0).unsqueeze(0) * img2.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1) - mu1_mu2
+
+    ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
+
+    return ssim_map.mean() if size_average else ssim_map

@@ -210,7 +210,7 @@ with open(amploss_path, mode) as f:
             # f.write(f"{coeff_loss.item()}\n")
         with torch.no_grad():
             if loss_val < best_loss:
-                best_para = params
+                best_para = params.clone().detach()
                 best_phase = get_0_2pi((params * zernike_stack).sum(dim=0)).squeeze(0).squeeze(0)
                 best_loss = loss_val.item()
                 best_amp = s * free_d1_amp
