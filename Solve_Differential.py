@@ -1,140 +1,144 @@
+import os
 import numpy as np
-import torch
-import torch.optim as optim
+import imageio
+from skimage import exposure
+from unit import cal_grad
+from unit import phasemap_8bit
 import cv2
+import torch.nn.functional as F
 import matplotlib.pyplot as plt
-import torchvision.utils as vutils
-from torch.utils.tensorboard import SummaryWriter
-from scipy.sparse import lil_matrix
-from scipy.sparse.linalg import spsolve
+import torch
 from tqdm import tqdm
 
+from Diffraction_H import Diffraction_propagation, get_amplitude, get_phase, get_0_2pi
+from Zernike import generate_zer_poly
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-ref = cv2.imread('test_img/ref.tif', cv2.IMREAD_GRAYSCALE)
-cap = cv2.imread('test_img/cap.tif', cv2.IMREAD_GRAYSCALE)
-ref = ref.astype(np.float64) / 255.0
-cap = cap.astype(np.float64) / 255.0
-# 初始化变量
-ref = torch.tensor(ref, dtype=torch.float64).to(device)
-cap = torch.tensor(cap, dtype=torch.float64).to(device)
-cons = cap - ref
-pha = torch.zeros_like(ref, device=device, dtype=torch.float64, requires_grad=True)
-N, M = ref.shape
-h = 1
-optimizer = optim.Adam([pha], lr=0.1)
+lambda_ = 532e-9  # mm
+pi = torch.tensor(torch.pi, dtype=torch.float64)
+k = (2 * pi / lambda_)
+dx = 8e-6  # m
+d0 = 0.10  # m
+size = 1000
+mask_size = (size, size)
+Zer_radius = 400
+pupil_radium = 400
+n_max = 15
+w = 3e-3
 
-def compute_loss(pha, ref, cons):
-    # 计算梯度
-    pha_grad_x = torch.cat((pha[:, 1:] - pha[:, :-1], torch.zeros(N, 1, device=device)), 1)
-    pha_grad_y = torch.cat((pha[1:, :] - pha[:-1, :], torch.zeros(1, M, device=device)), 0)
-
-    ref_grad_x = torch.cat((ref[:, 1:] - ref[:, :-1], torch.zeros(N, 1, device=device)), 1)
-    ref_grad_y = torch.cat((ref[1:, :] - ref[:-1, :], torch.zeros(1, M, device=device)), 0)
-
-    # 计算点积和添加cons
-    grad_dot = pha_grad_x * ref_grad_x + pha_grad_y * ref_grad_y + cons
-
-    # 使用均方误差作为损失函数
-    loss = (grad_dot ** 2).mean()
-    return loss
-
-
-# 运行迭代
-iterations = 5000
-for it in tqdm(range(iterations)):
-    optimizer.zero_grad()
-    loss = compute_loss(pha, ref, cons)
-    loss.backward()
-    optimizer.step()
-
-    with torch.no_grad():
-        pha %= (2 * torch.pi)
-
-    if it % 100 == 0:
-        print(f"Iteration {it}: Loss {loss.item()}")
-
-# 检查结果
-pha_cpu = pha.detach().cpu().numpy()
-plt.imshow(pha_cpu)
-plt.show()
-print("Optimization finished. Loss:", loss.item())
-
-# # 迭代参数
-# max_iter = 10
-# tolerance = 1e-6
-# omega = 1.5  # 松弛因子，用于加速收敛
-#
-# # 迭代求解
-# for iteration in tqdm(range(max_iter)):
-#     pha_old = pha.copy()
-#
-#     for i in range(1, height + 1):
-#         for j in range(1, width + 1):
-#             # 使用中心差分公式计算梯度
-#             grad_pha_x = (pha_old[i, j + 1] - pha_old[i, j - 1]) / (2 * h)
-#             grad_pha_y = (pha_old[i + 1, j] - pha_old[i - 1, j]) / (2 * h)
-#             grad_ref_x = (ref[i - 1, j - 1] - ref[i - 1, j - 1]) / (2 * h)  # 注意边界匹配
-#             grad_ref_y = (ref[i - 1, j - 1] - ref[i - 1, j - 1]) / (2 * h)
-#
-#             # 计算在(i, j)处的差分方程值
-#             pha[i, j] = (omega / 4.0) * ((pha_old[i, j + 1] + pha[i, j - 1] + pha_old[i + 1, j] + pha[i - 1, j]) -
-#                                          h ** 2 * cons[i - 1, j - 1] / (grad_ref_x ** 2 + grad_ref_y ** 2 + 1e-10)) \
-#                         + (1 - omega) * pha_old[i, j]
-#
-#     # 计算误差，检查是否达到收敛标准
-#     error = np.max(np.abs(pha - pha_old))
-#     print(error)
-#     if error < tolerance:
-#         print("Converged after", iteration, "iterations")
-#         break
-# else:
-#     print("Max iterations reached without convergence.")
-#
-# # 去掉padding
-# pha = pha[1:-1, 1:-1]
-#
-# # 绘制结果
-# plt.imshow(pha, cmap='hot', interpolation='nearest')
-# plt.colorbar()
-# plt.title('Computed Pha')
+in_pupil = torch.ones(mask_size, dtype=torch.float64).to(device)
+x = torch.linspace(-size / 2, size / 2, size, dtype=torch.float64) * dx
+y = torch.linspace(size / 2, -size / 2, size, dtype=torch.float64) * dx
+X, Y = torch.meshgrid(x, y, indexing='xy')
+rho = torch.sqrt(X ** 2 + Y ** 2)
+angle = torch.atan2(Y, X)
+mask = rho > dx * pupil_radium
+# in_pupil[mask] = 0.0
+gaussian = torch.exp(-rho ** 2 / w ** 2)
+in_phase = cv2.imread('test.png', cv2.IMREAD_GRAYSCALE) / 255
+in_phase = torch.tensor(in_phase, dtype=torch.float64, device=device) * 2 * torch.pi
+in_phase = get_0_2pi(in_phase)
+# plt.imshow(in_phase, cmap='gray')
 # plt.show()
 
+zer_path = 'parameter/zernike_stack_{}_{}.pth'.format(n_max, Zer_radius)
+if os.path.exists(zer_path):
+    zernike_stack = torch.load(zer_path).to(device)  # zur_num,1,1000,1000
+    zer_num = zernike_stack.shape[0]
+else:
+    print('Generate Zernike polynomial')
+    zernike_stack, zer_num = generate_zer_poly(size=size, dx=dx, n_max=n_max, radius=Zer_radius)
 
+coeff = torch.rand(zer_num, 1, 1, 1, device=device, dtype=torch.float64)
+zer_pha = get_0_2pi((coeff * zernike_stack).sum(dim=0)).squeeze(0)
+padding_left = 460
+padding_right = 460
+padding_top = 40
+padding_bottom = 40
+zer_pha = F.pad(zer_pha, (padding_left, padding_right, padding_top, padding_bottom), "constant", 0)
+plt.imshow(zer_pha.cpu(), cmap='gray')
+plt.show()
 
+random = torch.randn(1000, 1000)
+obj_field = torch.exp(1j * in_phase)
+free_d0 = Diffraction_propagation(obj_field, d0, dx, lambda_).to(device)
+ref = get_amplitude(free_d0)
 
-# gt = torch.zeros_like(ref, device=device, dtype=torch.float64, requires_grad=True)
-# a = torch.nn.Parameter(torch.ones(1).to(device), requires_grad=True)
-# # 优化器
-# loss_fn = torch.nn.MSELoss()
+plt.imshow(ref.cpu().numpy(), cmap='gray')
+plt.title('ref')
+plt.show()
+# plt.imsave('cor.png', I1, cmap='gray')
+free_d1 = Diffraction_propagation(obj_field * torch.exp(1j*zer_pha), d0, dx, lambda_).to(device)
+I0 = get_amplitude(free_d1)
+I0 = (I0 - torch.mean(I0)) / torch.std(I0)
+I0 = (I0 - torch.min(I0)) / (torch.max(I0) - torch.min(I0))
+abe = exposure.match_histograms(I0.cpu().data.numpy(), ref.cpu().data.numpy())
+# plt.imshow(I0.cpu().numpy(), cmap='gray')
+# plt.show()
+plt.imshow(abe, cmap='gray')
+plt.title('abe')
+plt.show()
+# plt.imsave('ref.png', I0, cmap='gray')
+abe = abe[40:1040, 460:1460]
+ref = ref[40:1040, 460:1460]
+delta_i = np.abs(abe - ref.numpy())
+plt.imshow(delta_i, cmap='gray')
+plt.show()
+abe_gx, abe_gy = cal_grad(abe)
+plt.imshow(abe_gx, cmap='gray')
+plt.show()
+plt.imshow(abe_gy, cmap='gray')
+plt.show()
+abe_grad = np.sqrt(abe_gx**2+abe_gy**2)
+plt.imshow(abe_grad, cmap='gray')
+plt.show()
 
-# writer = SummaryWriter('runs/pha_optimization')
-# # 迭代优化
-# iterations = 3000
-# for it in range(iterations):
-#     optimizer.zero_grad()
-#
-#     # 计算梯度
-#     grad_pha_x, grad_pha_y = torch.gradient(pha)
-#     grad_ref_x, grad_ref_y = torch.gradient(ref)
-#
-#     # 计算 ∇pha ⋅ ∇ref + cons = 0
-#
-#     loss1 = torch.mean((grad_pha_x * grad_ref_x + grad_pha_y * grad_ref_y + cons))
-#
-#     loss = loss_fn(loss1, gt)
-#     # 反向传播
-#     loss.backward()
-#
-#     # 更新pha
-#     optimizer.step()
-#
-#     if it % 10 == 0:
-#         print(f"Iteration {it}: Loss {loss.item()}")
-#         writer.add_scalar('Loss', loss.item(), it)
-#         # 将pha矩阵调整为[1, 1000, 1000]的形式，适合add_image
-#         pha_img = pha.unsqueeze(0)  # [1, 1000, 1000]
-#         pha_img = (pha_img - pha_img.min()) / (pha_img.max() - pha_img.min())  # 归一化到[0,1]
-#         writer.add_image('Pha Matrix', pha_img, it)
-# writer.close()
+ref_gx, ref_gy = cal_grad(ref)
+plt.imshow(ref_gx, cmap='gray')
+plt.show()
+plt.imshow(ref_gy, cmap='gray')
+plt.show()
+ref_grad = np.sqrt(ref_gx**2+ref_gy**2)
+plt.imshow(ref_grad, cmap='gray')
+plt.show()
 
-print("Optimization Finished.")
+plt.imshow(np.abs(ref_gx - abe_gx), cmap='gray')
+plt.show()
+'''
+img = cv2.imread('test_img/grid_10_slm.png', cv2.IMREAD_GRAYSCALE) / 255
+img = torch.tensor(img, dtype=torch.float64, device=device)
+num_iters = 5000
+params = torch.nn.Parameter(torch.zeros_like(img))
+optimizer = torch.optim.Adam([params], lr=0.04)
+initial_lr = optimizer.param_groups[0]['lr']
+loss_fn = torch.nn.MSELoss()
+best_loss = 10.0
+pbar = tqdm(range(num_iters))
+for i in pbar:
+    optimizer.zero_grad()
+    obj1 = torch.exp(1j * params)  # Zernike
+    free_d1 = Diffraction_propagation(obj1, d0, dx, lambda_)
+    free_d1_amp = get_amplitude(free_d1)
+    with torch.no_grad():
+        s = (free_d1_amp * img).mean() / \
+            (free_d1_amp ** 2).mean()
+    loss_val = loss_fn(1 * free_d1_amp, img)
+    # coeff_loss = torch.sum(torch.abs(params - coeff))
+    loss_val.backward()
+    optimizer.step()
+    current_lr = optimizer.param_groups[0]['lr']
+    if i % 400 == 0:
+        optimizer.param_groups[0]['lr'] = current_lr * 0.8
+    with torch.no_grad():
+        if loss_val < best_loss:
+            best_para = params.clone().detach()
+            best_loss = loss_val.item()
+            best_amp = 1 * free_d1_amp
+    pbar.set_postfix(loss=f'{loss_val:.6f}', refresh=True)
+print(best_loss)
+plt.imshow(best_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
+plt.show()
+plt.imshow(best_para.cpu().data.numpy(), cmap='gray')
+plt.show()
+imageio.imwrite('test.png', phasemap_8bit(best_para))
+'''

@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from unit import creat_obj
 from skimage import draw
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 lambda_ = 532e-9  # mm
 pi = torch.tensor(torch.pi, dtype=torch.float64)
 k = (2 * pi / lambda_)
@@ -20,7 +20,7 @@ d0 = 0.1  # m
 size = 1000
 mask_size = (size, size)
 Zer_radius = 400
-pupil_radium = 300
+pupil_radium = 400
 n_max = 15
 f1 = 0.1
 f2 = 0.1
@@ -170,7 +170,7 @@ plt.title('4f abe diffraction z = {}'.format(d0))
 plt.show()
 
 # Start iteration
-num_iters = 500
+num_iters = 1000
 params = torch.nn.Parameter(torch.zeros_like(coeff))
 optimizer = torch.optim.Adam([params], lr=0.04)
 initial_lr = optimizer.param_groups[0]['lr']

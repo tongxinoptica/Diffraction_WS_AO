@@ -9,6 +9,7 @@ import numpy as np
 import cv2
 from skimage import draw
 
+
 # def to_psnr(img1, img2):
 #     mse = F.mse_loss(img1, img2, reduction='none')
 #     mse_split = torch.split(mse, 1)
@@ -24,7 +25,7 @@ def to_psnr(img1, img2):
     for b in range(batch_img):
         mse = torch.sum((img1[b] - img2[b]) ** 2) / (H_img * W_img)
         mse_list.append(mse)
-    mse = sum(mse_list)/len(mse_list)
+    mse = sum(mse_list) / len(mse_list)
     psnr = 10.0 * log10(1 / mse)
     return psnr
 
@@ -68,7 +69,7 @@ def to_pearson(img1, img2):
         y2 = torch.sqrt(torch.sum(y * y))
         g2 = torch.sqrt(torch.sum(g * g))
         PCC_list.append(yg / (y2 * g2))
-    pcc = -1.0*sum(PCC_list) / len(PCC_list)
+    pcc = -1.0 * sum(PCC_list) / len(PCC_list)
     return pcc
 
 
@@ -81,12 +82,14 @@ def to_mseloss(img1, img2):
     mse = sum(mse_list) / len(mse_list)
     return mse
 
+
 def creat_obj(smple_path, light_size, radius, binaty_inv, if_obj):
     sample = cv2.imread(smple_path, cv2.IMREAD_GRAYSCALE)
     re_size = 450
     sample_resized = cv2.resize(sample, (re_size, re_size))
-    pad_size = int((light_size-re_size) / 2)
-    sample_padded = np.pad(sample_resized, ((pad_size, pad_size), (pad_size, pad_size)), 'constant', constant_values=(0, 0))
+    pad_size = int((light_size - re_size) / 2)
+    sample_padded = np.pad(sample_resized, ((pad_size, pad_size), (pad_size, pad_size)), 'constant',
+                           constant_values=(0, 0))
     if binaty_inv == 0:
         _, test = cv2.threshold(sample_padded, 100, 255, cv2.THRESH_BINARY_INV)
     elif binaty_inv == 1:
@@ -102,9 +105,9 @@ def creat_obj(smple_path, light_size, radius, binaty_inv, if_obj):
         obj = obj * test
     return obj
 
-def phasemap_8bit(phasemap, inverted=False):
 
-    output_phase = ((phasemap + 2*np.pi) % (2 * np.pi)) / (2 * np.pi)
+def phasemap_8bit(phasemap, inverted=False):
+    output_phase = ((phasemap + 2 * np.pi) % (2 * np.pi)) / (2 * np.pi)
     if inverted:
         phase_out_8bit = ((1 - output_phase) * 255).round().cpu().detach().squeeze().numpy().astype(
             np.uint8)  # quantized to 8 bits
@@ -112,6 +115,7 @@ def phasemap_8bit(phasemap, inverted=False):
         phase_out_8bit = ((output_phase) * 255).round().cpu().detach().squeeze().numpy().astype(
             np.uint8)  # quantized to 8 bits
     return phase_out_8bit
+
 
 # smple_path = 'test_img/grid_4.png'
 # sample = cv2.imread(smple_path, cv2.IMREAD_GRAYSCALE)
@@ -132,25 +136,38 @@ def gaussian_window(size, sigma):
     g /= g.sum()
     return g.outer(g)
 
+
 def twossim(img1, img2, window_size=11, sigma=1.5, size_average=True):
     """计算两个图像之间的SSIM指数"""
-    C1 = 0.01**2
-    C2 = 0.03**2
+    C1 = 0.01 ** 2
+    C2 = 0.03 ** 2
 
     window = gaussian_window(window_size, sigma).to(img1.device)
     window = window.expand(1, 1, window_size, window_size)
 
-    mu1 = F.conv2d(img1.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1)
-    mu2 = F.conv2d(img2.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1)
+    mu1 = F.conv2d(img1.unsqueeze(0).unsqueeze(0), window, padding=window_size // 2, groups=1)
+    mu2 = F.conv2d(img2.unsqueeze(0).unsqueeze(0), window, padding=window_size // 2, groups=1)
 
     mu1_sq = mu1.pow(2)
     mu2_sq = mu2.pow(2)
     mu1_mu2 = mu1 * mu2
 
-    sigma1_sq = F.conv2d(img1.unsqueeze(0).unsqueeze(0) * img1.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1) - mu1_sq
-    sigma2_sq = F.conv2d(img2.unsqueeze(0).unsqueeze(0) * img2.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1) - mu2_sq
-    sigma12 = F.conv2d(img1.unsqueeze(0).unsqueeze(0) * img2.unsqueeze(0).unsqueeze(0), window, padding=window_size//2, groups=1) - mu1_mu2
+    sigma1_sq = F.conv2d(img1.unsqueeze(0).unsqueeze(0) * img1.unsqueeze(0).unsqueeze(0), window,
+                         padding=window_size // 2, groups=1) - mu1_sq
+    sigma2_sq = F.conv2d(img2.unsqueeze(0).unsqueeze(0) * img2.unsqueeze(0).unsqueeze(0), window,
+                         padding=window_size // 2, groups=1) - mu2_sq
+    sigma12 = F.conv2d(img1.unsqueeze(0).unsqueeze(0) * img2.unsqueeze(0).unsqueeze(0), window,
+                       padding=window_size // 2, groups=1) - mu1_mu2
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
 
     return ssim_map.mean() if size_average else ssim_map
+
+
+def cal_grad(img):
+    H, W = img.shape
+    grad_x = img[:, 1:] - img[:, :-1]
+    grad_y = img[1:, :] - img[:-1, :]
+    grad_x = np.pad(grad_x, ((0, 0), (0, 1)), mode='constant', constant_values=0)
+    grad_y = np.pad(grad_y, ((0, 1), (0, 0)), mode='constant', constant_values=0)
+    return grad_x, grad_y

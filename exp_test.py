@@ -9,6 +9,7 @@ from Diffraction_H import Diffraction_propagation, get_amplitude, get_phase, get
 from Zernike import generate_zer_poly
 from unit import twossim
 
+
 n = 2
 # input zernike and crop
 zernike_pha = cv2.imread('test_img/exp/4.23_zernike{}.png'.format(n), cv2.IMREAD_GRAYSCALE) / 255
@@ -47,7 +48,7 @@ plt.imshow(abe, cmap='gray')
 plt.show()
 
 # Start propagation
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 lambda_ = 532e-9
 pi = torch.tensor(torch.pi, dtype=torch.float64)
 k = (2 * pi / lambda_)
@@ -66,7 +67,7 @@ mask = rho > dx * 500
 src = torch.tensor(src, dtype=torch.float64).to(device)
 ref = torch.tensor(ref, dtype=torch.float64).to(device)
 abe = torch.tensor(abe, dtype=torch.float64).to(device)
-abe[mask] = 0
+#abe[mask] = 0
 
 # Correct propagation phase with exp and sim
 train_pro_pha = False
@@ -127,14 +128,14 @@ params = torch.nn.Parameter(coeff, requires_grad=True)
 optimizer = torch.optim.Adam([params], lr=0.01)
 best_loss = 10.0
 loss_fn = torch.nn.MSELoss()
-pbar = tqdm(range(2000))
+pbar = tqdm(range(1000))
 for i in pbar:
     optimizer.zero_grad()
     zer_pha = get_0_2pi((params * zernike_stack).sum(dim=0)).squeeze(0).to(device)
-    obj_field = obj0 * torch.exp(1j * zer_pha)
+    obj_field = src * torch.exp(1j * zer_pha)
     free_d0 = Diffraction_propagation(obj_field, d, dx, lambda_).to(device)
     free_d0_amp = get_amplitude(free_d0)
-    free_d0_amp[mask] = 0
+    #free_d0_amp[mask] = 0
     current_lr = optimizer.param_groups[0]['lr']
     if i % 500 == 0:
         optimizer.param_groups[0]['lr'] = current_lr * 1
@@ -157,6 +158,8 @@ for i in pbar:
             estimate_abe = get_0_2pi((best_para * zernike_stack).sum(dim=0)).squeeze(0)
             best_loss = loss_val.item()
             best_amp = 1 * free_d0_amp.clone().detach()
+            loss_percent = torch.sum(torch.abs(free_d0_amp - abe)) / torch.sum(abe)
+            print(loss_percent)
             # plt.imshow(best_amp.cpu().data.numpy(), cmap='gray')
             # plt.show()
     pbar.set_postfix(loss=f'{best_loss:.6f}', refresh=True)

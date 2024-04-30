@@ -41,7 +41,7 @@ def get_transfer_fun(nu, nv, dx, wavelength, distance, transfer_fun, device=devi
         # complex_data = H1['H']
         # complex_data_np = np.array(complex_data)
         # H1 = torch.tensor(complex_data_np)
-        H_filter = (torch.abs(FX ** 2 + FY ** 2) <= (1 ** 2) * torch.abs(FX ** 2 + FY ** 2).max()).type(
+        H_filter = (torch.abs(FX ** 2 + FY ** 2) <= (0.5 ** 2) * torch.abs(FX ** 2 + FY ** 2).max()).type(
             torch.FloatTensor).to(device)
         # df = pd.DataFrame(H.data.numpy())
         # df.to_csv('H.csv', index=False)
