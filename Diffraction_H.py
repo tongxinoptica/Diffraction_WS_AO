@@ -8,10 +8,8 @@ from PIL import Image
 from unit import to_mseloss, to_ssim, to_pearson, to_psnr
 import torch.nn.functional as F
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
-def Diffraction_propagation(field, distance, dx, wavelength, transfer_fun='Angular Spectrum'):
+def Diffraction_propagation(field, distance, dx, wavelength, transfer_fun='Angular Spectrum', device='cpu'):
     H = get_transfer_fun(
         field.shape[-2],
         field.shape[-1],
@@ -26,7 +24,7 @@ def Diffraction_propagation(field, distance, dx, wavelength, transfer_fun='Angul
     return result
 
 
-def get_transfer_fun(nu, nv, dx, wavelength, distance, transfer_fun, device=device):
+def get_transfer_fun(nu, nv, dx, wavelength, distance, transfer_fun, device):
     distance = torch.tensor([distance], dtype=torch.float64).to(device)
     fy = torch.linspace(-1 / (2 * dx), 1 / (2 * dx) - 1 / (nv * dx), nu, dtype=torch.float64).to(device)
     fx = torch.linspace(-1 / (2 * dx), 1 / (2 * dx) - 1 / (nv * dx), nv, dtype=torch.float64).to(device)
@@ -115,7 +113,6 @@ def SLM_Propagation(img, dis, dx, wavelength, p):
 def lens_phase(X, Y, k, f):  # X and Y is space coordinate
     len_p = (k * (X ** 2 + Y ** 2) / (2 * f)) % (2 * torch.pi) + k * 1.4 * 0.003
     return len_p  # (0 , 2pi)
-
 
 
 '''

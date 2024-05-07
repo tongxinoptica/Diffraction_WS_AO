@@ -61,7 +61,7 @@ plt.show()
 
 random = torch.randn(1000, 1000)
 obj_field = torch.exp(1j * in_phase)
-free_d0 = Diffraction_propagation(obj_field, d0, dx, lambda_).to(device)
+free_d0 = Diffraction_propagation(obj_field, d0, dx, lambda_, device='cpu')
 ref = get_amplitude(free_d0)
 
 plt.imshow(ref.cpu().numpy(), cmap='gray')
