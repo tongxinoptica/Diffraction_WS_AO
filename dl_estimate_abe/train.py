@@ -20,27 +20,33 @@ size = 1000
 mask_size = (size, size)
 Zer_radius = 400
 pupil_radium = 400
-n_max = 15
+n_max = 10
 w = 3e-3
 learning_rate = 0.001
 batch = 4
-epoch = 5000
+epoch = 50000
 zer_path = '../parameter/zernike_stack_{}_{}.pth'.format(n_max, Zer_radius)
 holo_path = '../test.png'
-writer = SummaryWriter('runs/experiment_1')
+writer = SummaryWriter('runs')
 
 # Define zernike aberration
 if os.path.exists(zer_path):
     zernike_stack = torch.load(zer_path).to(device)  # zur_num,1,1000,1000
     zer_num = zernike_stack.shape[0]
+    print('zer_num = {}'.format(zer_num))
 else:
     print('Generate Zernike polynomial')
     zernike_stack, zer_num = generate_zer_poly(size=size, dx=dx, n_max=n_max, radius=Zer_radius)
 
 #  Load resnet50
 loss_mse = nn.MSELoss()
-model = ResNet50().to(device)
+loss_l1 = nn.L1Loss()
+model = ResNet50(num_classes=zer_num).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+load_weght = False
+if load_weght:
+    model.load_state_dict(torch.load('u50_2300.pth'))
+    print('Weight Loaded')
 model.train()
 
 pbar_train = tqdm(range(epoch))
@@ -49,15 +55,20 @@ for i in pbar_train:
     output = model(input.float().to(device))
     out_coeff = output.unsqueeze(4)  # size=(batch,zer_num,1,1,1)
     est_zer_phase = get_0_2pi((out_coeff * zernike_stack).sum(dim=1))
-    out_ref_com = Diffraction_propagation(obj_field*torch.exp(-1j*est_zer_phase), d0, dx, lambda_, device=device)
+    out_ref_com = Diffraction_propagation(obj_field * torch.exp(-1j * est_zer_phase), d0, dx, lambda_, device=device)
     out_ref = get_amplitude(out_ref_com)
-    loss = loss_mse(out_ref.to(torch.float32), ref.to(torch.float32)) + loss_mse(out_coeff, coeff.to(torch.float32))
+    loss_coeff = loss_l1(out_ref.to(torch.float32), ref.to(torch.float32))
+    loss_ref = loss_mse(out_coeff, coeff.to(torch.float32))
+    loss = loss_ref + loss_coeff
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
-    pbar_train.set_postfix(loss=f'{loss:.6f}')
-    writer.add_scalar('Training Loss', loss, i)
-    writer.add_images('Input', out_ref, i)
+    pbar_train.desc = "[train epoch {}] loss_coeff: {:.6f} loss_ref: {.6f}".format(i + 1,
+                                                                                loss_coeff.item(), loss_ref.item())
+    if i % 1000 == 0:
+        writer.add_images('Input', out_ref, i)
+        writer.add_scalar('Training Loss', loss.item(), i)
+        torch.save(model.state_dict(), 'u50_{}.pth'.format(i))
 writer.close()
 # model.eval()
 # pbar_eval = tqdm(range(100))
@@ -70,10 +81,3 @@ writer.close()
 #         out_ref_com = Diffraction_propagation(obj_field*torch.exp(-1j*est_zer_phase), d0, dx, lambda_, device=device)
 #         out_ref = get_amplitude(out_ref_com)
 #         loss = loss_mse(out_ref, ref) + loss_mse(out_coeff, coeff)
-
-
-
-
-
-
-
