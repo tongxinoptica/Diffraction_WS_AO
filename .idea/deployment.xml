@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="tongxin@147.8.128.12:22 password (2)" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="tongxin@10.64.89.112:22 password (2)" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
-      <paths name="tongxin@147.8.128.12:22 password (2)">
+      <paths name="tongxin192">
         <serverdata>
           <mappings>
-            <mapping deploy="/mnt/ssd2/tongxin/Diffraction" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="tongxin@10.64.89.112:22 password (2)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/mnt/ssd2/tongxin/Diffraction" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>

@@ -60,8 +60,8 @@ imwrite(src,"test_img\exp\src.bmp", "bmp")
 
 %% Deconvolve
 clc;clear
-grid10 = imread('test_img\grid_10.png');
-grid10 = im2double(rgb2gray(grid10)) + 1;
+grid10 = imread('test_img\gray_grid10.bmp');
+grid10 = im2double(grid10);
 grid10 = grid10 / max(max(grid10));
 imshow(grid10)
 N = 1000;
@@ -82,3 +82,8 @@ fB = fftshift(fft2(B));
 C = ifft2(ifftshift(conv2(fA, fB, 'same')));
 res = C ./A./A;
 imagesc(angle(res));
+%%
+
+
+
+

@@ -77,12 +77,12 @@ imshow(absu2)
 imwrite(holo, 'C:\Users\84056\Desktop\phase test\3_0.105_0.075.png')
 
 %% Reconstruction
-phase = im2double(imread('p.bmp'));
-amp = im2double(imread('a.bmp'));
-
+clc; clear
+% phase = im2double(imread('C:\Users\84056\Desktop\phase test\3_0.105_0.075.png'));
+phase = im2double(imread('C:\Users\84056\Desktop\neural-3d-holography-main\results\green\slm_0.18_0.16.png'));
 % holo = rgb2gray(holo);
 pitch = 8e-6; % Pixel lenth, unit: mm
-[M,N] = size(amp);
+[M,N] = size(phase);
 W = M*pitch; % Lenth
 L = N*pitch; % Width
 lambda=532e-9;          
@@ -96,11 +96,11 @@ fx1 = linspace(-1/2/pitch, 1/2/pitch-dfx, M);
 fy1 = linspace(-1/2/pitch, 1/2/pitch-dfy, N);
 fx=-1/2/pitch:dfx:1/2/pitch-dfx;
 fy=-1/2/pitch:dfy:1/2/pitch-dfy;
-[fx,fy]=meshgrid(fx1,fy1);
+[fx,fy]=meshgrid(fx,fy);
 z = 0.1;
 % for z=100:105;
 figure;
-u1 = exp(-(x1.^2+y1.^2)/(0.001^2)).*exp(1i*2*pi*phase);
+u1 = exp(1i*2*pi*phase);
 A1=fftshift(fft2(u1));
 t = k*z*sqrt(1-(lambda*fx).^2-(lambda*fy).^2);
 H = exp(1j*t);
@@ -110,10 +110,10 @@ A2=A1.*H;
 u2=ifft2(ifftshift(A2));  % Output complex light field
 absu2 = abs(u2)./max(max(abs(u2))); % Output intensity
 imshow(absu2);
-holo = angle(u2);
-holo = holo+pi;
-holo=mod(holo,2*pi)/(2*pi);
-imshow(holo)
+% holo = angle(u2);
+% holo = holo+pi;
+% holo=mod(holo,2*pi)/(2*pi);
+% imshow(holo)
 % end
 % u2_real = u2_real./max(max(u2_real));
 % PSNR = psnr(u2_real,absu2);

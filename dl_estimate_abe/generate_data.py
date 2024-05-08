@@ -25,4 +25,4 @@ def train_data(batch, zernike_stack, holo_path, d0, dx, lambda_, device):
     delta_gx = abe_gx - ref_gx
     delta_gy = abe_gy - ref_gy  # size=(batch,1,1000,1000)
     input = torch.cat((delta_intensity, delta_gx, delta_gy), dim=1)
-    return input, coeff, obj_field, ref
+    return input, coeff, obj_field, ref, abe

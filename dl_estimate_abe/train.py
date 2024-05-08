@@ -55,15 +55,19 @@ for i in pbar_train:
     output = model(input.float().to(device))
     out_coeff = output.unsqueeze(4)  # size=(batch,zer_num,1,1,1)
     est_zer_phase = get_0_2pi((out_coeff * zernike_stack).sum(dim=1))
+    plt.imshow(est_zer_phase[0].squeeze(0).detach().numpy(), cmap='gray')
+    plt.show()
     out_ref_com = Diffraction_propagation(obj_field * torch.exp(-1j * est_zer_phase), d0, dx, lambda_, device=device)
     out_ref = get_amplitude(out_ref_com)
+    plt.imshow(out_ref[0].squeeze(0).detach().numpy(), cmap='gray')
+    plt.show()
     loss_coeff = loss_l1(out_ref.to(torch.float32), ref.to(torch.float32))
     loss_ref = loss_mse(out_coeff, coeff.to(torch.float32))
     loss = loss_ref + loss_coeff
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
-    pbar_train.desc = "[train epoch {}] loss_coeff: {:.6f} loss_ref: {.6f}".format(i + 1,
+    pbar_train.desc = "[train epoch {}] loss_coeff: {:.6f} loss_ref: {:.6f}".format(i + 1,
                                                                                 loss_coeff.item(), loss_ref.item())
     if i % 1000 == 0:
         writer.add_images('Input', out_ref, i)
