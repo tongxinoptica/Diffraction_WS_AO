@@ -18,25 +18,25 @@ dx = 8e-6  # m
 d0 = 0.10  # m
 size = 1000
 mask_size = (size, size)
-Zer_radius = 400
+zer_radius = 400
 pupil_radium = 400
 n_max = 10
 w = 3e-3
-learning_rate = 0.001
+learning_rate = 0.04
 batch = 4
-epoch = 50000
-zer_path = '../parameter/zernike_stack_{}_{}.pth'.format(n_max, Zer_radius)
-holo_path = '../test.png'
-writer = SummaryWriter('runs')
+epoch = 250000
+zer_path = '../parameter/zernike_stack_{}_{}.pth'.format(n_max, zer_radius)
+holo_path = 'gray_grid/gray_grid10.png'
+writer = SummaryWriter('runs/gray')
 
 # Define zernike aberration
 if os.path.exists(zer_path):
     zernike_stack = torch.load(zer_path).to(device)  # zur_num,1,1000,1000
     zer_num = zernike_stack.shape[0]
-    print('zer_num = {}'.format(zer_num))
+    print('zer_num = {}, zer_radium'.format(zer_num, zer_radius))
 else:
     print('Generate Zernike polynomial')
-    zernike_stack, zer_num = generate_zer_poly(size=size, dx=dx, n_max=n_max, radius=Zer_radius)
+    zernike_stack, zer_num = generate_zer_poly(size=size, dx=dx, n_max=n_max, radius=zer_radius)
 
 #  Load resnet50
 loss_mse = nn.MSELoss()
@@ -49,30 +49,30 @@ if load_weght:
     print('Weight Loaded')
 model.train()
 
-pbar_train = tqdm(range(epoch))
+pbar_train = tqdm(range(1, epoch))
 for i in pbar_train:
-    input, coeff, obj_field, ref = train_data(batch, zernike_stack, holo_path, d0, dx, lambda_, device)
+    input, coeff, obj_field, ref, _ = train_data(batch, zernike_stack, holo_path, d0, dx, lambda_, device)
     output = model(input.float().to(device))
     out_coeff = output.unsqueeze(4)  # size=(batch,zer_num,1,1,1)
     est_zer_phase = get_0_2pi((out_coeff * zernike_stack).sum(dim=1))
-    plt.imshow(est_zer_phase[0].squeeze(0).detach().numpy(), cmap='gray')
-    plt.show()
     out_ref_com = Diffraction_propagation(obj_field * torch.exp(-1j * est_zer_phase), d0, dx, lambda_, device=device)
     out_ref = get_amplitude(out_ref_com)
-    plt.imshow(out_ref[0].squeeze(0).detach().numpy(), cmap='gray')
-    plt.show()
-    loss_coeff = loss_l1(out_ref.to(torch.float32), ref.to(torch.float32))
-    loss_ref = loss_mse(out_coeff, coeff.to(torch.float32))
-    loss = loss_ref + loss_coeff
+    loss_ref= loss_mse(out_ref.to(torch.float32), ref.to(torch.float32))
+    loss_coeff = loss_mse(out_coeff, coeff.to(torch.float32))
+    loss = loss_coeff
+    current_lr = optimizer.param_groups[0]['lr']
+    if i % 2000 == 0:
+        optimizer.param_groups[0]['lr'] = current_lr * 0.6
+        print('lr update: {}'.format(optimizer.param_groups[0]['lr']))
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
     pbar_train.desc = "[train epoch {}] loss_coeff: {:.6f} loss_ref: {:.6f}".format(i + 1,
-                                                                                loss_coeff.item(), loss_ref.item())
-    if i % 1000 == 0:
+                                                                          loss_coeff.item(), loss_ref.item())
+    if i % 2000 == 0:
         writer.add_images('Input', out_ref, i)
         writer.add_scalar('Training Loss', loss.item(), i)
-        torch.save(model.state_dict(), 'u50_{}.pth'.format(i))
+        torch.save(model.state_dict(), 'gray_grid/u50_{}.pth'.format(i))
 writer.close()
 # model.eval()
 # pbar_eval = tqdm(range(100))
