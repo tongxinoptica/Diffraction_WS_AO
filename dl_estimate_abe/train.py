@@ -52,7 +52,7 @@ loss_mse = nn.MSELoss()
 loss_l1 = nn.L1Loss()
 model = ResNet50(num_classes=zer_num).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-load_weght = True
+load_weght = False
 if load_weght:
     model.load_state_dict(torch.load('gray_grid/u50_20000.pth'))
     print('Weight Loaded')
@@ -70,8 +70,8 @@ for i in pbar_train:
     loss_coeff = loss_mse(out_coeff, coeff.to(torch.float32))
     loss = loss_coeff
     current_lr = optimizer.param_groups[0]['lr']
-    if i % 20000 == 0:
-        optimizer.param_groups[0]['lr'] = current_lr * 0.6
+    if i % 10000 == 0:
+        optimizer.param_groups[0]['lr'] = current_lr * 0.8
         print('lr update: {}'.format(optimizer.param_groups[0]['lr']))
     optimizer.zero_grad()
     loss.backward()
