@@ -31,7 +31,7 @@ def zernike(n, m, rho, theta):
     return zer
 
 
-def generate_zer_poly(size, dx, n_max, radius):
+def generate_zer_poly(size, dx, n_max, radius, device):
     zer_path = '../parameter/zernike_stack_{}_{}.pth'.format(n_max, radius)
     if os.path.exists(zer_path):
         zernike_stack = torch.load(zer_path)
@@ -59,7 +59,7 @@ def generate_zer_poly(size, dx, n_max, radius):
         zernike_stack = torch.stack(zernike_list, dim=0)  # Stack along the new axis
         torch.save(zernike_stack, '../parameter/zernike_stack_{}_{}.pth'.format(n_max, radius))
 
-    return zernike_stack, zer_num
+    return zernike_stack.to(device), zer_num
 
 
 def zernike_phase(size, dx, n_max, radius, intensity):

@@ -117,15 +117,7 @@ def phasemap_8bit(phasemap, inverted=False):
     return phase_out_8bit
 
 
-# smple_path = 'test_img/grid_4.png'
-# sample = cv2.imread(smple_path, cv2.IMREAD_GRAYSCALE)
-# _, test = cv2.threshold(sample, 100, 255, cv2.THRESH_BINARY)
-# padding_left = 460
-# padding_right = 460
-# padding_top = 40
-# padding_bottom = 40
-# sample_padded = np.pad(test, ((padding_top, padding_bottom), (padding_left, padding_right)), 'constant', constant_values=(0, 0))
-# cv2.imwrite('test_img/grid_4_slm.png', sample_padded)
+
 
 def gaussian_window(size, sigma):
     """生成一个2D高斯窗口"""
