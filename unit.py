@@ -176,3 +176,51 @@ def sobel_grad(img, device):  # Tensor (batch, channel, high, weight)
     sobel_y = F.conv2d(img, sobel_y_kernel, padding=1)
     gradient_magnitude_torch = torch.sqrt(sobel_x ** 2 + sobel_y ** 2)
     return sobel_x, sobel_y
+
+
+def pad_tensor(input_tensor, target_height, target_width, pad_value=0):
+
+    input_shape = input_tensor.shape
+    if len(input_shape) == 2:  # (H, W)
+        C = 1
+        H, W = input_shape
+        input_tensor = input_tensor.unsqueeze(0)
+    elif len(input_shape) == 3:  # (C, H, W)
+        C, H, W = input_shape
+    else:
+        raise ValueError("Shape of Input must be 2d or 3d")
+
+    pad_left = (target_width - W) // 2
+    pad_right = target_width - W - pad_left
+    pad_top = (target_height - H) // 2
+    pad_bottom = target_height - H - pad_top
+
+    padded_tensor = F.pad(input_tensor, (pad_left, pad_right, pad_top, pad_bottom), value=pad_value)
+
+    return padded_tensor
+
+def pad_array(input_array, target_height, target_width, pad_value=0):
+
+    input_shape = input_array.shape
+    if len(input_shape) == 2:  # (H, W)
+        H, W = input_shape
+        input_array = np.expand_dims(input_array, axis=0)
+        C = 1
+    elif len(input_shape) == 3:  # (C, H, W)
+        C, H, W = input_shape
+    else:
+        raise ValueError("Shape of Input must be 2d or 3d")
+
+    # 计算每边的padding大小
+    pad_left = (target_width - W) // 2
+    pad_right = target_width - W - pad_left
+    pad_top = (target_height - H) // 2
+    pad_bottom = target_height - H - pad_top
+
+    # 使用指定值进行padding
+    padding = ((0, 0), (pad_top, pad_bottom), (pad_left, pad_right))
+    padded_array = np.pad(input_array, padding, mode='constant', constant_values=pad_value)
+
+    return padded_array
+
+

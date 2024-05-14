@@ -83,7 +83,11 @@ C = ifft2(ifftshift(conv2(fA, fB, 'same')));
 res = C ./A./A;
 imagesc(angle(res));
 %%
-
-
-
+ref = imread("E:\phase test\checkerboard.png");
+ref = im2double(rgb2gray(ref));
+I1 = flip(ref, 2);  
+figure(1)
+imshow(ref);
+figure(2)
+imshow(I1)
 
