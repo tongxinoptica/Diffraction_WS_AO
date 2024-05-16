@@ -62,8 +62,8 @@ def generate_zer_poly(size, dx, n_max, radius, device):
     return zernike_stack.to(device), zer_num
 
 
-def zernike_phase(size, dx, n_max, radius, intensity):
-    zernike_stack, zer_num = generate_zer_poly(size=size, dx=dx, n_max=n_max, radius=radius)
+def zernike_phase(size, dx, n_max, radius, intensity, device):
+    zernike_stack, zer_num = generate_zer_poly(size=size, dx=dx, n_max=n_max, radius=radius, device=device)
     random_coeffs = torch.rand(zer_num, 1, 1, 1, dtype=torch.float64) * intensity
     zernike_phase = (random_coeffs * zernike_stack).sum(dim=0)
     zernike_phase = zernike_phase % (2 * torch.pi)

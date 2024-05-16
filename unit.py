@@ -83,9 +83,10 @@ def to_mseloss(img1, img2):
     return mse
 
 
-def creat_obj(smple_path, light_size, radius, binaty_inv, if_obj):
-    sample = cv2.imread(smple_path, cv2.IMREAD_GRAYSCALE)
-    re_size = 450
+def creat_obj(smple_path, light_size, radius, binaty_inv, if_obj, device):
+    sample = cv2.imread(smple_path, cv2.IMREAD_GRAYSCALE) / 255.0
+    # sample = sample[40: 1040, 460: 1460]
+    re_size = 500
     sample_resized = cv2.resize(sample, (re_size, re_size))
     pad_size = int((light_size - re_size) / 2)
     sample_padded = np.pad(sample_resized, ((pad_size, pad_size), (pad_size, pad_size)), 'constant',
@@ -103,7 +104,7 @@ def creat_obj(smple_path, light_size, radius, binaty_inv, if_obj):
     obj[rr, cc] = 1.0
     if if_obj:
         obj = obj * test
-    return obj
+    return obj.to(device)
 
 
 def phasemap_8bit(phasemap, inverted=False):

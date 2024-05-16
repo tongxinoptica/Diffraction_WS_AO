@@ -1,3 +1,5 @@
+import os
+
 import cv2
 import torch
 import numpy as np
@@ -6,7 +8,7 @@ from skimage import draw
 from tqdm import tqdm
 import torch.nn.functional as F
 from Diffraction_H import lens_phase, Diffraction_propagation, get_phase, get_amplitude, get_hologram, get_0_2pi
-from Zernike import zernike_phase
+from Zernike import zernike_phase, generate_zer_poly
 from unit import creat_obj, phasemap_8bit
 import imageio
 
@@ -15,7 +17,7 @@ k = 2 * np.pi / lambda_
 f1 = 0.1  # focal length
 f2 = 0.1
 f3 = 0.1
-f4 = 0.15
+f4 = 0.1
 d0 = 1 * f1  # dis between obj and lens1
 d1 = 1 * f1  # dis between lens1 and abe
 d2 = 1 * f2  # dis between abe and lens2
@@ -24,8 +26,8 @@ d3 = f2 + f3  # dis between lens2 and observe
 radius = 400
 size = 1000  #
 dx = 8e-6  #
-sample_path = 'test_img/grid_10.png'
-if_obj = False
+sample_path = 'test_img/usaf.png'
+if_obj = True
 Add_zernike = True
 slm = False
 phase_correct = False
@@ -39,9 +41,9 @@ SGD_correct = False
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Create object and binary
-obj = creat_obj(sample_path, size, radius=radius, binaty_inv=0, if_obj=if_obj)  # 0: Inverse; 1: NoInverse; 2: None
-# plt.imshow(obj.data.numpy(), cmap='gray')
-# plt.show()
+obj = creat_obj(sample_path, 1000, radius=500, binaty_inv=2, if_obj=if_obj, device=device)  # 0: Inverse; 1: NoInverse; 2: None
+plt.imshow(obj.data.numpy(), cmap='gray')
+plt.show()
 
 
 x = torch.linspace(-size / 2, size / 2, size, dtype=torch.float64) * dx
@@ -72,16 +74,15 @@ free_d1_ph = get_phase(free_d1)
 
 if Add_zernike:
     # Propagate abe to lens2
-    zer = zernike_phase(size, dx, n_max=15, radius=radius, intensity=1).unsqueeze(0)  # 0-2pi
-    # padding_left = 460
-    # padding_right = 460
-    # padding_top = 40
-    # padding_bottom = 40
-    # zer = F.pad(zer, (padding_left, padding_right, padding_top, padding_bottom), "constant", 0)
-    # plt.imshow(zer.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
-    # plt.title('Aberration')
-    # plt.show()
-    # imageio.imwrite('./test_img/4.23_zernike3.png', phasemap_8bit(zer))
+    zer_path = 'parameter/zernike_stack_{}_{}.pth'.format(15, 500)
+    if os.path.exists(zer_path):
+        zernike_stack = torch.load(zer_path).to(device)  # zur_num,1,1000,1000
+        zer_num = zernike_stack.shape[0]
+    else:
+        print('Generate Zernike polynomial')
+        zernike_stack, zer_num = generate_zer_poly(size=1000, dx=dx, n_max=15, radius=500, device=device)
+    zer = get_0_2pi(
+        (torch.rand(zer_num, 1, 1, 1, dtype=torch.float64, device=device) * zernike_stack).sum(dim=0))
     zer_phase = get_0_2pi(zer + free_d1_ph)
 
     zer_field = free_d1_amp * torch.exp(1j * zer_phase)
@@ -92,7 +93,7 @@ if Add_zernike:
     # plt.show()
 else:
     # propagate to lens2
-    free_d2 = Diffraction_propagation(free_d1, 1*d2, dx, lambda_)
+    free_d2 = Diffraction_propagation(free_d1, f1+f2, dx, lambda_)
     free_d2_amp = get_amplitude(free_d2)
     free_d2_ph = get_phase(free_d2)
 
@@ -100,15 +101,15 @@ else:
 len2_phs = lens_phase(X, Y, k, f2).to(device)  # lens2 phase
 new_ph = get_0_2pi(free_d2_ph - len2_phs)
 free_d2_field = get_hologram(free_d2_amp, new_ph)
-free_d3 = Diffraction_propagation(free_d2_field, 0.1, dx, lambda_)
+free_d3 = Diffraction_propagation(free_d2_field, f2+f3, dx, lambda_)
 free_d3_amp = get_amplitude(free_d3)
 free_d3_ph = get_phase(free_d3)  # 0-2pi
 free_d3_amp = free_d3_amp / torch.max(free_d3_amp)
 
-plt.imshow(free_d3_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
-plt.show()
-plt.imshow(free_d3_ph.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
-plt.show()
+# plt.imshow(free_d3_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
+# plt.show()
+# plt.imshow(free_d3_ph.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
+# plt.show()
 # free_d3 = Diffraction_propagation(free_d3, f, dx, lambda_)
 # free_d3_amp = get_amplitude(free_d3)
 # free_d3_ph = get_phase(free_d3)  # 0-2pi
