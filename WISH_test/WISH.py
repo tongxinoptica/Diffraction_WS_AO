@@ -20,7 +20,7 @@ d0 = 0.03  # m
 size = 1000
 n_max = 15
 zer_radius = 400
-iter_num = 500
+iter_num = 50
 x = torch.linspace(-size / 2, size / 2, size, dtype=torch.float64) * dx
 y = torch.linspace(-size / 2, size / 2, size, dtype=torch.float64) * dx
 X, Y = torch.meshgrid(x, y, indexing='xy')
@@ -40,7 +40,7 @@ else:
     print('Generate Zernike polynomial')
     zernike_stack, zer_num = generate_zer_poly(size=1000, dx=dx, n_max=n_max, radius=zer_radius, device=device)
 zernike_pha = get_0_2pi((torch.rand(zer_num, 1, 1, 1, dtype=torch.float64, device=device) * zernike_stack).sum(dim=0))
-imageio.imsave('abe_pha.png', phasemap_8bit(zernike_pha, inverted=False))
+# imageio.imsave('abe_pha.png', phasemap_8bit(zernike_pha, inverted=False))
 # slm_plane = img*torch.exp(1j*zernike_pha)
 slm_plane = Diffraction_propagation(img, d0, dx, lambda_, device=device)
 slm_plane_fft = torch.fft.fftshift(torch.fft.fft2(img)) * torch.exp(1j * zernike_pha)
@@ -49,7 +49,7 @@ ori_abe = get_amplitude(sensor_plane_fft)
 ori_pha = get_phase(sensor_plane_fft)
 plt.imshow(ori_abe[0].cpu(), cmap='gray')
 plt.show()
-plt.imsave('usaf_amp_abe.png', ori_abe[0].cpu())
+# plt.imsave('usaf_amp_abe.png', ori_abe[0].cpu())
 plt.imshow(ori_pha[0].cpu(), cmap='gray')
 plt.show()
 # imageio.imsave('ori_pha.png', phasemap_8bit(ori_pha, inverted=True))
@@ -116,26 +116,32 @@ def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, m
 
 
 
-phase = torch.rand(8, 100, 100, dtype=torch.float64, device=device)
+phase = torch.rand(4, 100, 100, dtype=torch.float64, device=device)
 phase = F.interpolate(phase.unsqueeze(0), size=(1000, 1000), mode='bicubic', align_corners=False)
 slm_plane = slm_plane_fft * torch.exp(1j * phase)
 # sensor_plane = Diffraction_propagation(slm_plane, d0, dx, lambda_, device=device)
 # sensor_abe = get_amplitude(sensor_plane)  # 1,8,1080,1920
 sensor_plane = torch.fft.fftshift(torch.fft.fft2(slm_plane))
 sensor_abe = get_amplitude(sensor_plane)
+
+noise_level = 0.1  # Adjustable parameter for noise level
+noise = torch.randn(sensor_abe.shape, dtype=torch.float64, device=device) * noise_level
+sensor_abe_noisy = sensor_abe + noise
+
 #  Get sensor intensity and random phase, then recovery intensity and phase of slm plane field
-recovery_slm_field = random_phase_recovery(sensor_abe, phase, d0, dx, lambda_, iter_num, 'FFT', device)
+recovery_slm_field = random_phase_recovery(sensor_abe_noisy, phase, d0, dx, lambda_, iter_num, 'FFT', device)
 est_abe_pha = get_phase(recovery_slm_field / torch.fft.fftshift(torch.fft.fft2(img)))
 plt.imshow(est_abe_pha[0].cpu(), cmap='gray')
 plt.title('slm plane pha')
 plt.show()
-imageio.imsave('est_abe_pha.png', phasemap_8bit(est_abe_pha, inverted=False))
+# imageio.imsave('est_abe_pha.png', phasemap_8bit(est_abe_pha, inverted=False))
 recovery_sensor_field = torch.fft.fft2(recovery_slm_field * torch.exp(-1j * est_abe_pha))
 sensor_intensity = get_amplitude(recovery_sensor_field[0])
 plt.imshow(sensor_intensity.cpu(), cmap='gray')
 plt.title('recovery sensor plane intensity')
 plt.show()
-plt.imsave('recovery_usaf.png', sensor_intensity.cpu().numpy())
+# plt.imsave('recovery_usaf.png', sensor_intensity.cpu().numpy())
+
 # without_cor_sensor = torch.fft.fft2(recovery_slm_field)
 # sensor_abe = get_amplitude(without_cor_sensor[0])
 # plt.imshow(sensor_abe.cpu(), cmap='gray')
