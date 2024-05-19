@@ -29,7 +29,7 @@ Phi = torch.atan2(Y, X)
 img_path = 'usaf.png'
 img = creat_obj(img_path, size, radius=500, binaty_inv=2, if_obj=True,
                 device=device)  # 0: Inverse; 1: NoInverse; 2: None
-
+img = img[200:800, 200:800]
 plt.imshow(img.data.cpu().numpy(), cmap='gray')
 plt.show()
 zer_path = 'parameter/zernike_stack_{}_{}.pth'.format(n_max, zer_radius)
@@ -76,6 +76,8 @@ free_d2_field = get_hologram(free_d2_amp, new_ph)
 free_d3 = Diffraction_propagation(free_d2_field, 0.1, dx, lambda_, 'Angular Spectrum', device)
 free_d3_amp = get_amplitude(free_d3)
 free_d3_ph = get_phase(free_d3)  # 0-2pi
+
+
 # plt.imshow(free_d3_amp.squeeze(0).squeeze(0).cpu().data.numpy(), cmap='gray')
 # plt.show()
 # plt.imsave('usaf_abe_amp.png', free_d3_amp.squeeze(0).squeeze(0).cpu().numpy())
@@ -113,7 +115,6 @@ def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, m
             new_slm = torch.fft.ifft2(torch.fft.ifftshift(new_sensor))  # Back prop
             init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
         return init_u
-
 
 
 phase = torch.rand(8, 100, 100, dtype=torch.float64, device=device)
