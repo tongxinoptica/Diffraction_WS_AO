@@ -100,10 +100,10 @@ def creat_obj(smple_path, light_size, radius, binaty_inv, if_obj, device):
 
     obj = torch.zeros((light_size, light_size), dtype=torch.float64)
     # rr, cc = draw.rectangle(start=(400, 400), end=(600, 600))
-    rr, cc = draw.disk((light_size / 2, light_size / 2), radius=radius)
-    obj[rr, cc] = 1.0
+    # rr, cc = draw.disk((light_size / 2, light_size / 2), radius=radius)
+    # obj[rr, cc] = 1.0
     if if_obj:
-        obj = obj * test
+        obj = obj + test
     return obj.to(device)
 
 
