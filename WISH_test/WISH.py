@@ -28,12 +28,12 @@ y = torch.linspace(-size / 2, size / 2, size, dtype=torch.float64) * dx
 X, Y = torch.meshgrid(x, y, indexing='xy')
 rho = torch.sqrt(X ** 2 + (Y ** 2))
 Phi = torch.atan2(Y, X)
-img_path = 'usaf.png'
+img_path = 'castle.png'
 img = creat_obj(img_path, size, radius=500, binaty_inv=2, if_obj=True,
                 device=device)  # 0: Inverse; 1: NoInverse; 2: None
 # img = img[200:800,200:800]
-plt.imshow(img.data.cpu().numpy(), cmap='gray')
-plt.show()
+# plt.imshow(img.data.cpu().numpy(), cmap='gray')
+# plt.show()
 zer_path = 'parameter/zernike_stack_{}_{}.pth'.format(n_max, zer_radius)
 if os.path.exists(zer_path):
     zernike_stack = torch.load(zer_path).to(device)  # zur_num,1,1000,1000
@@ -43,6 +43,8 @@ else:
     zernike_stack, zer_num = generate_zer_poly(size=1000, dx=dx, n_max=n_max, radius=zer_radius, device=device)
 zernike_pha = get_0_2pi((torch.rand(zer_num, 1, 1, 1, dtype=torch.float64, device=device)* 2 * zernike_stack).sum(dim=0))
 zernike_pha = zernike_pha[0][116:884, 116:884]
+plt.imshow(zernike_pha.cpu(), cmap='gray')
+plt.show()
 imageio.imsave('abe_pha.png', phasemap_8bit(zernike_pha, inverted=False))
 # slm_plane = img*torch.exp(1j*zernike_pha)
 slm_plane = Diffraction_propagation(img, d0, dx, lambda_, device=device)
@@ -119,7 +121,7 @@ def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, m
 
 def second_iterate(re_obj, re_abe, sensor_abe, random_phase, d0, dx, lambda_, iter_num, method, device):
     if method == 'FFT':
-        init_u = re_abe
+        init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j*re_abe)
 
         pbar = tqdm(range(iter_num))
         for i in pbar:
@@ -130,14 +132,16 @@ def second_iterate(re_obj, re_abe, sensor_abe, random_phase, d0, dx, lambda_, it
             # new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 3, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
             new_slm = torch.fft.ifft2(torch.fft.ifftshift(new_sensor))  # Back prop
             init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
+            pha = get_phase(init_u / torch.fft.fftshift(torch.fft.fft2(re_obj)))
+            init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j * pha)
 
-            sensor_p2 = torch.fft.fftshift(torch.fft.fft2(init_u))
-            new_sensor2 = ((re_obj - get_amplitude(sensor_p2)) * torch.rand(1, device=device) + re_obj) * torch.exp(1j*get_phase(sensor_p2))
-            init_u = torch.fft.ifft2(torch.fft.ifftshift(new_sensor2))
+            # sensor_p2 = torch.fft.fftshift(torch.fft.fft2(init_u))
+            # new_sensor2 = ((re_obj - get_amplitude(sensor_p2)) * torch.rand(1, device=device) + re_obj) * torch.exp(1j*get_phase(sensor_p2))
+            # init_u = torch.fft.ifft2(torch.fft.ifftshift(new_sensor2))
 
         return init_u
 
-phase = torch.rand(3, 100, 100, dtype=torch.float64, device=device)
+phase = torch.rand(2, 100, 100, dtype=torch.float64, device=device)
 phase = F.interpolate(phase.unsqueeze(0), size=(768, 768), mode='bicubic', align_corners=False)
 slm_plane = slm_plane_fft * torch.exp(1j * phase)
 # sensor_plane = Diffraction_propagation(slm_plane, d0, dx, lambda_, device=device)
@@ -145,51 +149,47 @@ slm_plane = slm_plane_fft * torch.exp(1j * phase)
 sensor_plane = torch.fft.fftshift(torch.fft.fft2(slm_plane))
 sensor_abe = get_amplitude(sensor_plane)
 
-noise_level = 0  # Adjustable parameter for noise level
+noise_level = 0.3  # Adjustable parameter for noise level
 noise = torch.randn(sensor_abe.shape, dtype=torch.float64, device=device) * noise_level
 sensor_abe_noisy = sensor_abe + noise
 
 #  Get sensor intensity and random phase, then recovery intensity and phase of slm plane field
-start_time = time.time()
-recovery_slm_field = random_phase_recovery(sensor_abe_noisy, phase, d0, dx, lambda_, 50, 'FFT', device)
+time1 = time.time()
+recovery_slm_field = random_phase_recovery(sensor_abe_noisy, phase, d0, dx, lambda_, 20, 'FFT', device)
+est_abe_pha = get_phase(recovery_slm_field / torch.fft.fftshift(torch.fft.fft2(img)))
+final_slm_field = second_iterate(img, est_abe_pha, sensor_abe_noisy, phase, d0, dx, lambda_, 80, 'FFT', device)
 
-# plt.imshow(est_abe_pha[0].cpu(), cmap='gray')
-# plt.title('slm plane pha1')
-# plt.show()
-final_slm_field = second_iterate(img, recovery_slm_field, sensor_abe_noisy, phase, d0, dx, lambda_, 50, 'FFT', device)
-end_time = time.time()
 est_abe_pha = get_phase(final_slm_field / torch.fft.fftshift(torch.fft.fft2(img)))
-
-# plt.imshow(est_abe_pha[0].cpu(), cmap='gray')
-# plt.title('slm plane pha2')
-# plt.show()
-# imageio.imsave('cnn_iter100.png', phasemap_8bit(est_abe_pha, inverted=False))
+time2 = time.time()
+plt.imshow(est_abe_pha[0].cpu(), cmap='gray')
+plt.title('our')
+plt.show()
+imageio.imsave('cnn_iter100.png', phasemap_8bit(est_abe_pha, inverted=False))
 
 # Pure iteration
-recovery_slm_field2 = random_phase_recovery(sensor_abe_noisy, phase, d0, dx, lambda_, 1000, 'FFT', device)
-end_time2 = time.time()
-print(end_time2-end_time)
-print(end_time - start_time)
-
+time3 = time.time()
+recovery_slm_field2 = random_phase_recovery(sensor_abe_noisy, phase, d0, dx, lambda_, 200, 'FFT', device)
 est_abe_pha2 = get_phase(recovery_slm_field2 / torch.fft.fftshift(torch.fft.fft2(img)))
+time4 = time.time()
+print(time2 - time1)
+print(time4 - time3)
 
-# plt.imshow(est_abe_pha2[0].cpu(), cmap='gray')
-# plt.title('slm plane pha2')
-# plt.show()
-# imageio.imsave('iter100.png', phasemap_8bit(est_abe_pha2, inverted=False))
+plt.imshow(est_abe_pha2[0].cpu(), cmap='gray')
+plt.title('pure_gs')
+plt.show()
+imageio.imsave('iter100.png', phasemap_8bit(est_abe_pha2, inverted=False))
 
-gt_slm_field = sensor_p = torch.fft.fftshift(torch.fft.fft2(img))*torch.exp(1j*zernike_pha)
-# end_time2 = time.time()
-# print(end_time2 - end_time)
+gt_slm_field = sensor_p = torch.fft.fftshift(torch.fft.fft2(img)*torch.exp(1j*zernike_pha))
 
 
-recovery_sensor_field = torch.fft.fft2(gt_slm_field * torch.exp(-1j * est_abe_pha))
-sensor_intensity = get_amplitude(recovery_sensor_field[0])
-plt.imsave('re_cnn100.png', sensor_intensity.cpu().numpy())
 
-recovery_sensor_field = torch.fft.fft2(gt_slm_field * torch.exp(-1j * est_abe_pha2))
-sensor_intensity = get_amplitude(recovery_sensor_field[0])
-plt.imsave('re_pure100.png', sensor_intensity.cpu().numpy())
+recovery_sensor_field = torch.fft.fft2(gt_slm_field) * torch.exp(-1j * est_abe_pha)
+sensor_intensity1 = get_amplitude(recovery_sensor_field)
+plt.imsave('re_cnn100.png', sensor_intensity1[0].cpu().numpy(), cmap='gray')
+
+recovery_sensor_field = torch.fft.fft2(gt_slm_field) * torch.exp(-1j * est_abe_pha2)
+sensor_intensity2 = get_amplitude(recovery_sensor_field)
+plt.imsave('re_pure100.png', sensor_intensity2[0].cpu().numpy(), cmap='gray')
 delta_cnn = torch.angle(torch.exp(1j*zernike_pha) / torch.exp(1j*est_abe_pha))
 delta_pure = torch.angle(torch.exp(1j*zernike_pha) / torch.exp(1j*est_abe_pha2))
 delta_cnn = torch.sqrt(torch.mean(delta_cnn**2)).item()
