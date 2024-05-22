@@ -9,16 +9,6 @@ import numpy as np
 import cv2
 from skimage import draw
 
-
-# def to_psnr(img1, img2):
-#     mse = F.mse_loss(img1, img2, reduction='none')
-#     mse_split = torch.split(mse, 1)
-#     mse_list = [torch.mean(torch.squeeze(mse_split[ind])).item() for ind in range(len(mse_split))]
-#
-#     intensity_max = 1.0
-#     psnr_list = [10.0 * log10(intensity_max / mse) for mse in mse_list]
-#     return psnr_list
-
 def to_psnr(img1, img2):
     batch_img, channel_img, H_img, W_img = img1.shape[0], img1.shape[1], img1.shape[2], img1.shape[3]
     mse_list = []

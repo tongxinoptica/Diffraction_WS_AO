@@ -1,3 +1,4 @@
+import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import os
@@ -5,12 +6,24 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 import torch.nn.functional as F
-rotation_degrees = (-5,5)
-translate_fraction = (0.05, 0.05)
-Tensor2 = transforms.Compose([transforms.RandomRotation(rotation_degrees),
-                              transforms.RandomAffine(degrees=0, translate=translate_fraction, fill=0),
-                              transforms.ToTensor()])
-Tensor = transforms.ToTensor()
+
+
+class SquareCrop:
+    def __call__(self, img):
+        width, height = img.size
+        min_side = min(width, height)
+        return transforms.functional.center_crop(img, (min_side, min_side))
+
+
+def get_transforms():
+    return transforms.Compose([
+        SquareCrop(),  # 自定义裁剪
+        transforms.Resize((768, 768)),  # 缩放到 768x768
+        transforms.ToTensor()  # 转换为 Tensor
+    ])
+
+
+transform = get_transforms()
 
 
 class train_data(Dataset):  # 定义一个类，用Dataset去继承
@@ -28,16 +41,15 @@ class train_data(Dataset):  # 定义一个类，用Dataset去继承
         truth_img_name = self.truth_img_path[idx]
         img_path = os.path.join(self.root_dir, img_name)  # 把路径下每一张图片都给予一个对应的路径
         truth_img_path = os.path.join(self.label_dir, truth_img_name)
-        img = Image.open(img_path)  # 打开地址下的图片
-        img = Tensor(img)
+        img = Image.open(img_path).convert('L')  # 打开地址下的图片
+        img = transform(img)
         # img = img/(torch.max(img))  # 归一化0-1
-        truth_img = Image.open(truth_img_path)
-        truth_img = Tensor(truth_img)
+        truth_img = Image.open(truth_img_path).convert('L')
+        truth_img = transform(truth_img)
         return img, truth_img  # 不能返回全局变量，所以需要赋予给label
 
     def __len__(self):
         return len(self.img_path)  # 返回该路径下的东西的长度
-
 
 # if __name__ == '__main__':
 #     root_dir = 'D:/train/input_data/all'

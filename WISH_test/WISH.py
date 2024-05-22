@@ -119,9 +119,10 @@ def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, m
             init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
         return init_u
 
-def second_iterate(re_obj, re_abe, sensor_abe, random_phase, d0, dx, lambda_, iter_num, method, device):
+def second_iterate(re_obj, init_u, sensor_abe, random_phase, iter_num, method, device):
     if method == 'FFT':
-        init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j*re_abe)
+        est_abe_pha = get_phase(init_u / torch.fft.fftshift(torch.fft.fft2(re_obj)))
+        init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j*est_abe_pha)
 
         pbar = tqdm(range(iter_num))
         for i in pbar:
@@ -156,8 +157,7 @@ sensor_abe_noisy = sensor_abe + noise
 #  Get sensor intensity and random phase, then recovery intensity and phase of slm plane field
 time1 = time.time()
 recovery_slm_field = random_phase_recovery(sensor_abe_noisy, phase, d0, dx, lambda_, 20, 'FFT', device)
-est_abe_pha = get_phase(recovery_slm_field / torch.fft.fftshift(torch.fft.fft2(img)))
-final_slm_field = second_iterate(img, est_abe_pha, sensor_abe_noisy, phase, d0, dx, lambda_, 80, 'FFT', device)
+final_slm_field = second_iterate(img, recovery_slm_field, sensor_abe_noisy, phase, 80, 'FFT', device)
 
 est_abe_pha = get_phase(final_slm_field / torch.fft.fftshift(torch.fft.fft2(img)))
 time2 = time.time()

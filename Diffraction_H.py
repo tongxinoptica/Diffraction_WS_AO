@@ -115,85 +115,47 @@ def lens_phase(X, Y, k, f):  # X and Y is space coordinate
     return len_p  # (0 , 2pi)
 
 
-'''
-# 生成矩形孔的函数
-def rect_function(x, a):
-    return torch.where(torch.abs(x) <= a / 2, 1, 0)
-# field = rect_function(X, Lx_size) * rect_function(Y, Ly_size)
-Lx_size = 5e-3
-Ly_size = 5e-3
-'''
+def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, method, device):
+    if method == 'ASM':
+        init_u = Diffraction_propagation(sensor_abe, -d0, dx, lambda_, device=device)  # Back prop
+        init_u = torch.mean(init_u, dim=1)  # 1,1080,1920
+        for i in range(iter_num):
+            sensor_p = Diffraction_propagation(init_u.unsqueeze(0) * torch.exp(1j * random_phase), d0, dx, lambda_,
+                                               device=device)
+            sensor_angle = get_phase(sensor_p)
+            new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
+            # new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 8, 1, 1, device=device) + sensor_abe)
+            # * torch.exp(1j * sensor_angle)
+            new_slm = Diffraction_propagation(new_sensor, -d0, dx, lambda_, device=device)  # Back prop
+            init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
+        return init_u
+    if method == 'FFT':
+        init_u = torch.fft.ifftshift(torch.fft.ifft2(sensor_abe))
+        init_u = torch.mean(init_u, dim=1)  # 1,1080,1920
+        for i in range(iter_num):
+            sensor_p = torch.fft.fftshift(torch.fft.fft2(init_u.unsqueeze(0) * torch.exp(1j * random_phase)))
 
-'''
-wavelength = 532e-9  # m
-dx = 2 * 8e-6
-samples = 1000
-L = dx * samples
-dis_first = 0.2
-dis_onn = 0.05
-dis_after = 0.3
-k = 2 * np.pi / wavelength
-x = torch.linspace(-0.5 * L, 0.5 * L, samples)
-y = torch.linspace(-0.5 * L, 0.5 * L, samples)
-X, Y = torch.meshgrid(x, y)
+            sensor_angle = get_phase(sensor_p)
+            new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
+            # new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 8, 1, 1, device=device) + sensor_abe)
+            # * torch.exp(1j * sensor_angle)
+            new_slm = torch.fft.ifft2(torch.fft.ifftshift(new_sensor))  # Back prop
+            init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
+        return init_u
 
-to_tensor = transforms.ToTensor()
-to_pil = transforms.ToPILImage()
+def second_iterate(re_obj, init_u, sensor_abe, random_phase, iter_num, method, device):
+    if method == 'FFT':
+        est_abe_pha = get_phase(init_u / torch.fft.fftshift(torch.fft.fft2(re_obj)))
+        init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j*est_abe_pha)
 
-# Original image
-img_path = 'D:/HR_data/process_sphe/celeb_process/3.bmp'
-image = Image.open(img_path).convert('L').resize((720, 720))  # (1,720,720) PIL
-# plt.imshow(image, cmap='gray')
-# plt.axis('off')
-# plt.show()
+        for i in range(iter_num):
+            sensor_p = torch.fft.fftshift(torch.fft.fft2(init_u.unsqueeze(0) * torch.exp(1j * random_phase)))
+            sensor_angle = get_phase(sensor_p)
+            new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
+            # new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 3, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
+            new_slm = torch.fft.ifft2(torch.fft.ifftshift(new_sensor))  # Back prop
+            init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
+            pha = get_phase(init_u / torch.fft.fftshift(torch.fft.fft2(re_obj)))
+            init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j * pha)
 
-# Padding 0 to 1000*1000
-image = to_tensor(image)
-pad_left = (1000 - 720) // 2
-pad_right = 1000 - 720 - pad_left
-pad_top = (1000 - 720) // 2
-pad_bottom = 1000 - 720 - pad_top
-padding_image = F.pad(image, (pad_left, pad_right, pad_top, pad_bottom), 'constant', 0)
-
-# Show padding image
-plt.imshow(to_pil(padding_image), cmap='gray')
-plt.axis('off')
-# plt.title('Original')
-plt.show()
-
-# Calculate diffraction result
-Input = padding_image.unsqueeze(0).to(device)
-Output = Diffraction_propagation(Input, dis_first, dx, wavelength,
-                                 transfer_fun='Angular Spectrum')  # Fresnel Angular Spectrum
-amplitude = torch.abs(Output)
-phase = Output.imag.atan2(Output.real)
-amplitude = amplitude / torch.max(amplitude)
-
-# Show and save Output
-plt.imshow(to_pil(amplitude[0]), cmap='gray')
-plt.axis('off')
-# plt.colorbar()
-plt.savefig('distance_{}_dx_{}.jpg'.format(dis_first, dx), bbox_inches='tight', pad_inches=0)
-# plt.title('dis = {}'.format(dis_first))
-plt.show()
-
-# phase = (phase + 2 * np.pi) % (2 * np.pi)
-# Input2 = amplitude * torch.cos(phase) + 1j * amplitude * torch.sin(phase)
-# Output2 = Diffraction_propagation(Input2, dis_first, dx, wavelength, transfer_fun='Angular Spectrum')
-# amplitude2 = torch.abs(Output2)
-# amplitude2 = amplitude2 / torch.max(amplitude2)
-# plt.imshow(to_pil(amplitude2[0]), cmap='gray')
-# plt.axis('off')
-# plt.title('-pi,pi,dis = 0.1')
-# plt.show()
-
-# Calculate index
-mse = to_mseloss(Input, amplitude)
-psnr = to_psnr(Input, amplitude)
-ssim = to_ssim(Input, amplitude)
-pcc = to_pearson(Input, amplitude)
-print('mse = {}'.format(mse))
-print('psnr = {}'.format(psnr))
-print('ssim = {}'.format(ssim))
-print('pcc = {}'.format(pcc))
-'''
+        return init_u
