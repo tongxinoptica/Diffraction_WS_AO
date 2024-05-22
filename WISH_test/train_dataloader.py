@@ -2,6 +2,7 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 import os
+from unit import pad_tensor
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
@@ -18,7 +19,7 @@ class SquareCrop:
 def get_transforms():
     return transforms.Compose([
         SquareCrop(),  # 自定义裁剪
-        transforms.Resize((768, 768)),  # 缩放到 768x768
+        transforms.Resize((500, 500)),  # 缩放
         transforms.ToTensor()  # 转换为 Tensor
     ])
 
@@ -43,9 +44,11 @@ class train_data(Dataset):  # 定义一个类，用Dataset去继承
         truth_img_path = os.path.join(self.label_dir, truth_img_name)
         img = Image.open(img_path).convert('L')  # 打开地址下的图片
         img = transform(img)
+        img = pad_tensor(img, 768, 768, 0)
         # img = img/(torch.max(img))  # 归一化0-1
         truth_img = Image.open(truth_img_path).convert('L')
         truth_img = transform(truth_img)
+        truth_img = pad_tensor(truth_img, 768, 768, 0)
         return img, truth_img  # 不能返回全局变量，所以需要赋予给label
 
     def __len__(self):

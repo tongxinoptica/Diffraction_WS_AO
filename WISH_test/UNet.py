@@ -43,12 +43,12 @@ class UNet(nn.Module):
         #
         self.outconv1 = nn.Conv2d(filters[0], 1, 3, padding=1)
 
-        # initialise weights
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                init_weights(m, init_type='kaiming')
-            elif isinstance(m, nn.BatchNorm2d):
-                init_weights(m, init_type='kaiming')
+        # # initialise weights
+        # for m in self.modules():
+        #     if isinstance(m, nn.Conv2d):
+        #         init_weights(m, init_type='kaiming')
+        #     elif isinstance(m, nn.BatchNorm2d):
+        #         init_weights(m, init_type='kaiming')
 
     def dotProduct(self,seg,cls):
         B, N, H, W = seg.size()

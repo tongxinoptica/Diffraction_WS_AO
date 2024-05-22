@@ -23,12 +23,12 @@ pi = torch.tensor(np.pi, dtype=torch.float64)
 k = (2 * pi / lambda_)
 dx = 8e-6  # m
 size = (768, 768)
-n_max = 10
+n_max = 15
 zer_radius = 400
 train_batch = 4
-total_epoch = 200
-learning_rate = 0.01
-img_dir = 'D:\HR_data\original\DIV_valid'
+total_epoch = 1500
+learning_rate = 0.001
+img_dir = 'DIV_valid'
 
 zer_path = '../parameter/zernike_stack_{}_{}.pth'.format(n_max, zer_radius)
 zernike_stack = torch.load(zer_path)  # zur_num,1,1000,1000
@@ -44,10 +44,10 @@ model = UNet()
 model.to(device)
 train_loader = DataLoader(train_data(img_dir, img_dir), batch_size=train_batch, shuffle=False)
 loss_function = nn.MSELoss()
-optimizer = torch.optim.AdamW(model.parameters(), betas=(0.9, 0.999), lr=learning_rate)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 for i in range(total_epoch):
     current_lr = optimizer.param_groups[0]['lr']
-    if i % 20 == 0:
+    if i % 50 == 0:
         optimizer.param_groups[0]['lr'] = current_lr * 0.6
         print('lr update: {}'.format(optimizer.param_groups[0]['lr']))
 
@@ -63,13 +63,16 @@ for i in range(total_epoch):
         sensor_plane_fft = get_amplitude(torch.fft.ifft2(torch.fft.ifftshift(slm_plane_fft)))
         # plt.imshow(sensor_plane_fft[0][0], cmap='gray')
         # plt.show()
+        # plt.imshow(img[0][0], cmap='gray')
+        # plt.show()
         output = model(sensor_plane_fft.float().to(device))
         loss = loss_function(output, img.to(device))
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         train_loader.desc = "[train epoch {}] loss: {:.6f}".format(i + 1, loss)
-
+    if i % 500 == 0:
+        torch.save(model.state_dict(), './unet+/n10_i2_{}.pth'.format(i))
 
 # with torch.no_grad():
 #     img = creat_obj('castle.png', size, radius=500, binaty_inv=2, if_obj=True,
