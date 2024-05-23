@@ -12,3 +12,5 @@ dl_estimate_abe/runs/events.out.tfevents.1715085471.TongXin.10864.0
 WISH_test/abe_pha.png
 WISH_test/cnn_iter100.png
 WISH_test/iter100.png
+/WISH_test/data
+WISH_test/unet_model.py
