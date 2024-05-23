@@ -159,12 +159,12 @@ def cal_grad(img):
 def sobel_grad(img, device):  # Tensor (batch, channel, high, weight)
     sobel_x_kernel = torch.tensor([[-1., 0., 1.],
                                    [-2., 0., 2.],
-                                   [-1., 0., 1.]], dtype=torch.float64, device=device).view(1, 1, 3, 3)
+                                   [-1., 0., 1.]], device=device).view(1, 1, 3, 3)
     sobel_y_kernel = torch.tensor([[-1., -2., -1.],
                                    [0., 0., 0.],
-                                   [1., 2., 1.]], dtype=torch.float64, device=device).view(1, 1, 3, 3)
-    sobel_x = F.conv2d(img, sobel_x_kernel, padding=1)
-    sobel_y = F.conv2d(img, sobel_y_kernel, padding=1)
+                                   [1., 2., 1.]], device=device).view(1, 1, 3, 3)
+    sobel_x = F.conv2d(img.to(device), sobel_x_kernel, padding=1)
+    sobel_y = F.conv2d(img.to(device), sobel_y_kernel, padding=1)
     gradient_magnitude_torch = torch.sqrt(sobel_x ** 2 + sobel_y ** 2)
     return sobel_x, sobel_y
 

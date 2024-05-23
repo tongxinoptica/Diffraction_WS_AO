@@ -19,12 +19,12 @@ class SquareCrop:
 def get_transforms():
     return transforms.Compose([
         SquareCrop(),  # 自定义裁剪
-        transforms.Resize((500, 500)),  # 缩放
-        transforms.ToTensor()  # 转换为 Tensor
+        transforms.Resize((600, 600)),
+        transforms.ToTensor()
     ])
 
 
-transform = get_transforms()
+transform = transforms.ToTensor()
 
 
 class train_data(Dataset):  # 定义一个类，用Dataset去继承
@@ -44,11 +44,11 @@ class train_data(Dataset):  # 定义一个类，用Dataset去继承
         truth_img_path = os.path.join(self.label_dir, truth_img_name)
         img = Image.open(img_path).convert('L')  # 打开地址下的图片
         img = transform(img)
-        img = pad_tensor(img, 768, 768, 0)
+        # img = pad_tensor(img, 1000, 1000, 0)
         # img = img/(torch.max(img))  # 归一化0-1
         truth_img = Image.open(truth_img_path).convert('L')
         truth_img = transform(truth_img)
-        truth_img = pad_tensor(truth_img, 768, 768, 0)
+        # truth_img = pad_tensor(truth_img, 1000, 1000, 0)
         return img, truth_img  # 不能返回全局变量，所以需要赋予给label
 
     def __len__(self):
