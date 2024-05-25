@@ -20,9 +20,9 @@ k = (2 * pi / lambda_)
 dx = 8e-6  # m
 size = (768, 768)
 n_max = 15
-zer_radius = 400
-train_batch = 4
-total_epoch = 1500
+zer_radius = 500
+train_batch = 8
+total_epoch = 1000
 learning_rate = 0.001
 img_dir = './data/img'
 gt_dir = './data/gt'
@@ -38,22 +38,27 @@ noise = torch.randn(size, dtype=torch.float64, device=device) * noise_level
 
 model = RDR_model()
 model.to(device)
+load_weight = False
+if load_weight:
+    model.load_state_dict(torch.load('./unet+/n15_i2_100.pth', map_location=device))
+
 train_loader = DataLoader(train_data(img_dir, gt_dir), batch_size=train_batch, shuffle=False)
 loss_function = nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 for i in range(total_epoch):
     current_lr = optimizer.param_groups[0]['lr']
-    if i % 50 == 0:
+    if i % 20 == 0:
         optimizer.param_groups[0]['lr'] = current_lr * 0.8
         print('lr update: {}'.format(optimizer.param_groups[0]['lr']))
 
     model.train()
     train_loader = tqdm(train_loader)
+    base = 0
     for batch_id, train_data in enumerate(train_loader):
         img, gt = train_data
-        img = F.interpolate(img.to(device), size=(512, 512), mode='bicubic', align_corners=False)
-        gt = F.interpolate(gt.to(device), size=(512, 512), mode='bicubic', align_corners=False)
-        # label = label.to(device)
+        # img = F.interpolate(img.to(device), size=(512, 512), mode='bicubic', align_corners=False)
+        # gt = F.interpolate(gt.to(device), size=(512, 512), mode='bicubic', align_corners=False)
+        gt = gt.to(device)
         # zernike_pha = get_0_2pi(
         #     (torch.rand(zer_num, 1, 1, 1, dtype=torch.float64, device='cpu') * 2 * zernike_stack).sum(dim=0))
         # slm_plane_fft = torch.fft.fftshift(torch.fft.fft2(img)) * torch.exp(1j * zernike_pha)
@@ -72,9 +77,11 @@ for i in range(total_epoch):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        train_loader.desc = "[train epoch {}] loss: {:.6f}".format(i + 1, loss)
+        base += loss.item()
+        ave_loss = base / (batch_id+1)
+        train_loader.desc = "[train epoch {}] loss: {:.6f}".format(i + 1, ave_loss)
     if i % 100 == 0:
-        torch.save(model.state_dict(), './unet+/n15_i2_{}.pth'.format(i))
+        torch.save(model.state_dict(), './unet+/n15_i5_{}.pth'.format(i))
 
 # with torch.no_grad():
 #     img = creat_obj('castle.png', size, radius=500, binaty_inv=2, if_obj=True,
