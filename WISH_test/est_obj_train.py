@@ -11,6 +11,7 @@ from model import RDR_model
 import numpy as np
 from torch.utils.data import DataLoader
 from train_dataloader import train_data
+import combine_loss
 from unit import creat_obj, sobel_grad
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -22,8 +23,8 @@ size = (768, 768)
 n_max = 15
 zer_radius = 500
 train_batch = 8
-total_epoch = 1000
-learning_rate = 0.001
+total_epoch = 500
+learning_rate = 1e-5
 img_dir = './data/img'
 gt_dir = './data/gt'
 zer_path = '../parameter/zernike_stack_{}_{}.pth'.format(n_max, zer_radius)
@@ -38,14 +39,16 @@ noise = torch.randn(size, dtype=torch.float64, device=device) * noise_level
 
 model = RDR_model()
 model.to(device)
-load_weight = False
+load_weight = True
 if load_weight:
-    model.load_state_dict(torch.load('./unet+/n15_i2_100.pth', map_location=device))
+    model.load_state_dict(torch.load('./data/bi_n15_i5_900.pth', map_location=device))
+    print('Load weight')
 
 train_loader = DataLoader(train_data(img_dir, gt_dir), batch_size=train_batch, shuffle=False)
 loss_function = nn.MSELoss()
+loss1 = combine_loss.CombinedLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-for i in range(total_epoch):
+for i in range(901,1405):
     current_lr = optimizer.param_groups[0]['lr']
     if i % 20 == 0:
         optimizer.param_groups[0]['lr'] = current_lr * 0.8
@@ -73,7 +76,10 @@ for i in range(total_epoch):
         output = model(img.to(device))
         # out_gx, out_gy = sobel_grad(output, device)
         # img_gx, img_gy = sobel_grad(img, device)
-        loss = loss_function(output, gt)
+        # fft_gt = torch.fft.fftshift(torch.fft.fft2(gt))
+        # fft_out = torch.fft.fftshift(torch.fft.fft2(output))
+        loss = loss1(gt, output)
+        # loss = loss_function(gt, output)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -81,7 +87,7 @@ for i in range(total_epoch):
         ave_loss = base / (batch_id+1)
         train_loader.desc = "[train epoch {}] loss: {:.6f}".format(i + 1, ave_loss)
     if i % 100 == 0:
-        torch.save(model.state_dict(), './unet+/n15_i5_{}.pth'.format(i))
+        torch.save(model.state_dict(), './data/re_n15_i5_{}.pth'.format(i))
 
 # with torch.no_grad():
 #     img = creat_obj('castle.png', size, radius=500, binaty_inv=2, if_obj=True,

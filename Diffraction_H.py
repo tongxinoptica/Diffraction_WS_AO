@@ -5,6 +5,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 from PIL import Image
+from tqdm import tqdm
+
 from unit import to_mseloss, to_ssim, to_pearson, to_psnr
 import torch.nn.functional as F
 
@@ -119,27 +121,27 @@ def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, m
     if method == 'ASM':
         init_u = Diffraction_propagation(sensor_abe, -d0, dx, lambda_, device=device)  # Back prop
         init_u = torch.mean(init_u, dim=1)  # 1,1080,1920
-        for i in range(iter_num):
+        pbar = tqdm(range(iter_num))
+        for i in pbar:
             sensor_p = Diffraction_propagation(init_u.unsqueeze(0) * torch.exp(1j * random_phase), d0, dx, lambda_,
                                                device=device)
             sensor_angle = get_phase(sensor_p)
-            new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
-            # new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 8, 1, 1, device=device) + sensor_abe)
-            # * torch.exp(1j * sensor_angle)
+            # new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
+            new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 4, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
             new_slm = Diffraction_propagation(new_sensor, -d0, dx, lambda_, device=device)  # Back prop
             init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
         return init_u
     if method == 'FFT':
         init_u = torch.fft.ifftshift(torch.fft.ifft2(sensor_abe))
         init_u = torch.mean(init_u, dim=1)  # 1,1080,1920
-        for i in range(iter_num):
-            sensor_p = torch.fft.fftshift(torch.fft.fft2(init_u.unsqueeze(0) * torch.exp(1j * random_phase)))
+        pbar = tqdm(range(iter_num))
+        for i in pbar:
+            sensor_p = torch.fft.fft2(torch.fft.fftshift(init_u.unsqueeze(0) * torch.exp(1j * random_phase)))
 
             sensor_angle = get_phase(sensor_p)
-            new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
-            # new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 8, 1, 1, device=device) + sensor_abe)
-            # * torch.exp(1j * sensor_angle)
-            new_slm = torch.fft.ifft2(torch.fft.ifftshift(new_sensor))  # Back prop
+            # new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
+            new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 2, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
+            new_slm = torch.fft.ifftshift(torch.fft.ifft2(new_sensor))  # Back prop
             init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
         return init_u
 
@@ -147,13 +149,13 @@ def second_iterate(re_obj, init_u, sensor_abe, random_phase, iter_num, method, d
     if method == 'FFT':
         est_abe_pha = get_phase(init_u / torch.fft.fftshift(torch.fft.fft2(re_obj)))
         init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j*est_abe_pha)
-
-        for i in range(iter_num):
-            sensor_p = torch.fft.fftshift(torch.fft.fft2(init_u.unsqueeze(0) * torch.exp(1j * random_phase)))
+        pbar = tqdm(range(iter_num))
+        for i in pbar:
+            sensor_p = torch.fft.fft2(torch.fft.fftshift(init_u.unsqueeze(0) * torch.exp(1j * random_phase)))
             sensor_angle = get_phase(sensor_p)
             new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
             # new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 3, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
-            new_slm = torch.fft.ifft2(torch.fft.ifftshift(new_sensor))  # Back prop
+            new_slm = torch.fft.ifftshift(torch.fft.ifft2(new_sensor))  # Back prop
             init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
             pha = get_phase(init_u / torch.fft.fftshift(torch.fft.fft2(re_obj)))
             init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j * pha)
