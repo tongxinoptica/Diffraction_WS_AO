@@ -117,7 +117,7 @@ def lens_phase(X, Y, k, f):  # X and Y is space coordinate
     return len_p  # (0 , 2pi)
 
 
-def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, method, device):
+def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, method, device='cpu'):
     if method == 'ASM':
         init_u = Diffraction_propagation(sensor_abe, -d0, dx, lambda_, device=device)  # Back prop
         init_u = torch.mean(init_u, dim=1)  # 1,1080,1920
@@ -140,12 +140,12 @@ def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, m
 
             sensor_angle = get_phase(sensor_p)
             # new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
-            new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 2, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
+            new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 10, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
             new_slm = torch.fft.ifftshift(torch.fft.ifft2(new_sensor))  # Back prop
             init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
         return init_u
 
-def second_iterate(re_obj, init_u, sensor_abe, random_phase, iter_num, method, device):
+def second_iterate(re_obj, init_u, sensor_abe, random_phase, iter_num, method, device='cpu'):
     if method == 'FFT':
         est_abe_pha = get_phase(init_u / torch.fft.fftshift(torch.fft.fft2(re_obj)))
         init_u = torch.fft.fftshift(torch.fft.fft2(re_obj)) * torch.exp(1j*est_abe_pha)

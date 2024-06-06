@@ -17,7 +17,7 @@ import cv2
 #     img = cv2.imread('./exp_data_gene/gt/{}.png'.format(i), cv2.IMREAD_GRAYSCALE) / 255
 #     img = cv2.resize(img, (600,600), interpolation=cv2.INTER_CUBIC)
 #     img = (img >= 0.5).astype(np.float32)
-#     img = (img + 1) / 2
+#     # img = (img + 1) / 2
 #     img = pad_array(img, 1080, 1920, 0)
 #     img = (img * 255).astype(np.uint8)
 #     imageio.imwrite('./exp_data_gene/obj{}.png'.format(i), img.squeeze(0))
@@ -36,46 +36,51 @@ import cv2
 #
 #         slm_p = phase + zernike_pha
 #         imageio.imsave('./exp_data_gene/slm_p/{}_{}.png'.format(i,j), phasemap_8bit(slm_p, inverted=False))
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 dx = 8e-6  # m
 d0 = 0.03
 lambda_ = 532e-9
-obj = cv2.imread('./exp_data_gene/obj/obj2.png', cv2.IMREAD_GRAYSCALE) / 255
-obj = torch.tensor(obj, dtype=torch.float64)
-slmp1 = cv2.imread('./exp_data_gene/slm_p/1_1.png', cv2.IMREAD_GRAYSCALE) / 255
+obj = cv2.imread('./exp_data_gene/gt/1.png', cv2.IMREAD_GRAYSCALE) / 255
+obj = pad_array(obj, 1080,1920)
+obj = torch.tensor(obj[0], dtype=torch.float64, device=device)
+slmp1 = cv2.imread('./exp_data_gene/slm_hole/1_1.png', cv2.IMREAD_GRAYSCALE) / 255
 slmp1 = torch.tensor(slmp1, dtype=torch.float64) * 2 * torch.pi
-slmp2 = cv2.imread('./exp_data_gene/slm_p/1_2.png', cv2.IMREAD_GRAYSCALE) / 255
+slmp2 = cv2.imread('./exp_data_gene/slm_hole/1_2.png', cv2.IMREAD_GRAYSCALE) / 255
 slmp2 = torch.tensor(slmp2, dtype=torch.float64) * 2 * torch.pi
-slmp3 = cv2.imread('./exp_data_gene/slm_p/1_3.png', cv2.IMREAD_GRAYSCALE) / 255
+slmp3 = cv2.imread('./exp_data_gene/slm_hole/1_3.png', cv2.IMREAD_GRAYSCALE) / 255
 slmp3 = torch.tensor(slmp3, dtype=torch.float64) * 2 * torch.pi
-p1 = cv2.imread('./exp_data_gene/rand_p/1_1.png', cv2.IMREAD_GRAYSCALE) / 255
+p1 = cv2.imread('./exp_data_gene/rand_hole/1_1.png', cv2.IMREAD_GRAYSCALE) / 255
 p1 = torch.tensor(p1, dtype=torch.float64) * 2 * torch.pi
-p2 = cv2.imread('./exp_data_gene/rand_p/1_2.png', cv2.IMREAD_GRAYSCALE) / 255
+p2 = cv2.imread('./exp_data_gene/rand_hole/1_2.png', cv2.IMREAD_GRAYSCALE) / 255
 p2 = torch.tensor(p2, dtype=torch.float64) * 2 * torch.pi
-p3 = cv2.imread('./exp_data_gene/rand_p/1_3.png', cv2.IMREAD_GRAYSCALE) / 255
+p3 = cv2.imread('./exp_data_gene/rand_hole/1_3.png', cv2.IMREAD_GRAYSCALE) / 255
 p3 = torch.tensor(p3, dtype=torch.float64) * 2 * torch.pi
 
-slmp = torch.stack([slmp1, slmp2, slmp3], dim=0)
-phase = torch.stack([p1, p2, p3], dim=0)
-# obj = obj[:, 420:1500]
-# slmp = slmp[:, :, 420:1500]
-# phase = phase[:, :, 420:1500]
+slmp = torch.stack([slmp1, slmp2, slmp3], dim=0).to(device)
+phase = torch.stack([p1, p2, p3], dim=0).to(device)
+obj = obj[:, 420:1500]
+slmp = slmp[:, :, 420:1500]
+phase = phase[:, :, 420:1500]
 slm_plane = torch.fft.fftshift(torch.fft.fft2(obj)) * torch.exp(1j * slmp)
 sensor_plane = torch.fft.fft2(torch.fft.fftshift(slm_plane))
 sensor_abe = get_amplitude(sensor_plane)
 sensor_abe = sensor_abe / sensor_abe.amax(dim=(1, 2), keepdim=True)
 noise_level = 0.  # Adjustable parameter  for noise level
 noise = torch.randn(sensor_abe.shape, dtype=torch.float64) * noise_level
-sensor_abe = sensor_abe + noise
-plt.imshow(sensor_abe[0], cmap='gray')
+plt.imshow(sensor_abe[0].cpu(), cmap='gray')
 plt.show()
-sensor_abe = sensor_abe[:, :, 420:1500]
-phase = phase[:, :, 420:1500]
-obj = obj[:, 420:1500]
-recovery_slm_field = random_phase_recovery(sensor_abe.unsqueeze(0), phase, d0, dx, lambda_, 40, 'FFT')
-final_slm_field = second_iterate(obj, recovery_slm_field, sensor_abe, phase, 60, 'FFT')
+plt.imshow(sensor_abe[1].cpu(), cmap='gray')
+plt.show()
+plt.imshow(sensor_abe[2].cpu(), cmap='gray')
+plt.show()
+# sensor_abe = sensor_abe[:, :, 420:1500]
+# phase = phase[:, :, 420:1500]
+# obj = obj[:, 420:1500]
+recovery_slm_field = random_phase_recovery(sensor_abe.unsqueeze(0), phase, d0, dx, lambda_, 40, 'FFT',device=device)
+final_slm_field = second_iterate(obj, recovery_slm_field, sensor_abe, phase, 60, 'FFT', device=device)
 est_abe_pha = get_phase(final_slm_field / torch.fft.fftshift(torch.fft.fft2(obj)))
 plt.imshow(est_abe_pha[0].cpu(), cmap='gray')
 plt.show()
 sensor = get_amplitude(torch.fft.ifft2(final_slm_field * torch.exp(-1j * est_abe_pha)))
-plt.imshow(sensor[0], cmap='gray')
+plt.imshow(sensor[0].cpu(), cmap='gray')
 plt.show()

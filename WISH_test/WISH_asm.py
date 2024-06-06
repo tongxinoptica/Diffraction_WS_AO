@@ -30,7 +30,7 @@ def again(re_obj, init_u, sensor_abe, random_phase, iter_num, method, device):
 
         return init_u
 
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 lambda_ = 532e-9  # m
 pi = torch.tensor(np.pi, dtype=torch.float64)
 k = (2 * pi / lambda_)

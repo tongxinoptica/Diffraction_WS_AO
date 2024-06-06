@@ -13,7 +13,7 @@ from Zernike import generate_zer_poly
 import imageio
 import torch.nn.functional as F
 
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 lambda_ = 532e-9  # mm
 pi = torch.tensor(np.pi, dtype=torch.float64)
 k = (2 * pi / lambda_)
@@ -117,7 +117,7 @@ def second_iterate(re_obj, init_u, sensor_abe, random_phase, iter_num, method, d
         return init_u
 
 
-phase = torch.rand(2, 100, 100, dtype=torch.float64, device=device)
+phase = torch.rand(3, 100, 100, dtype=torch.float64, device=device)
 phase = F.interpolate(phase.unsqueeze(0), size=(768, 768), mode='bicubic', align_corners=False)
 phase = phase * torch.pi * 2
 slm_plane = slm_plane_fft * torch.exp(1j * phase)
@@ -128,13 +128,13 @@ sensor_abe = get_amplitude(sensor_plane)
 sensor_abe = sensor_abe / sensor_abe.amax(dim=(2, 3), keepdim=True)
 plt.imsave('1.png', sensor_abe[0][0].cpu().numpy(), cmap='gray')
 plt.imsave('2.png', sensor_abe[0][1].cpu().numpy(), cmap='gray')
-# plt.imsave('3.png', sensor_abe[0][2].cpu().numpy(), cmap='gray')
+plt.imsave('3.png', sensor_abe[0][2].cpu().numpy(), cmap='gray')
 
 img1 = cv2.imread('1.png', cv2.IMREAD_GRAYSCALE) / 255.0
 img2 = cv2.imread('2.png', cv2.IMREAD_GRAYSCALE) / 255.0
-# img3 = cv2.imread('3.png', cv2.IMREAD_GRAYSCALE) / 255.0
+img3 = cv2.imread('3.png', cv2.IMREAD_GRAYSCALE) / 255.0
 
-stacked_images = np.stack([img1, img2], axis=0)
+stacked_images = np.stack([img1, img2, img3], axis=0)
 sensor_abe1 = torch.tensor(stacked_images, device=device).unsqueeze(0)
 # plt.imshow(sensor_abe[0][0].cpu(), cmap='gray')
 # plt.show()
