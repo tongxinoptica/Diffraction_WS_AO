@@ -214,4 +214,12 @@ def pad_array(input_array, target_height, target_width, pad_value=0):
 
     return padded_array
 
+def rotate_array(img, degree):
+    (h, w) = img.shape[:2]
+    center = (w // 2, h // 2)
+    angle = degree
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    rotated = cv2.warpAffine(img, M, (w, h))
+    return rotated
+
 

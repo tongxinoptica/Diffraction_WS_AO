@@ -127,9 +127,10 @@ def random_phase_recovery(sensor_abe, random_phase, d0, dx, lambda_, iter_num, m
                                                device=device)
             sensor_angle = get_phase(sensor_p)
             # new_sensor = sensor_abe * torch.exp(1j * sensor_angle)
-            new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 4, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
+            new_sensor = ((sensor_abe - get_amplitude(sensor_p)) * torch.rand(1, 10, 1, 1, device=device) + sensor_abe) * torch.exp(1j * sensor_angle)
             new_slm = Diffraction_propagation(new_sensor, -d0, dx, lambda_, device=device)  # Back prop
             init_u = torch.mean(new_slm * torch.exp(-1j * random_phase), dim=1)
+            # init_u = re_obj * torch.exp(1j*get_phase(init_u))
         return init_u
     if method == 'FFT':
         init_u = torch.fft.ifftshift(torch.fft.ifft2(sensor_abe))
