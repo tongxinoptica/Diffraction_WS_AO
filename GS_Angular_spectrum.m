@@ -1,4 +1,4 @@
-%% 
+% 
 clear;
 clc;     
 close all;
@@ -8,7 +8,7 @@ dic = 'C:\Users\84056\Desktop\phase test\USAF15b.png';
 Ii=imread(dic);
 Ii = im2double(Ii);
 Ii = rgb2gray(Ii);
-Ii = imresize(Ii, [1080,1920]);
+% Ii = imresize(Ii, [256,256]);
 pitch = 0.008; % Pixel lenth, unit: mm
 [M,N] = size(Ii);
 W = M*pitch; % Lenth
@@ -19,8 +19,7 @@ ni=1.4935;
 lambda=532e-6;          
 h=zeros(N+1);
 k=2*pi/lambda;
-dh=100; % Propagate distance
-pitch = 0.008;
+dh=80; % Propagate distance
 x1=-L/2:pitch:L/2-pitch;
 y1=-W/2:pitch:W/2-pitch;
 [x1,y1]=meshgrid(x1,y1);
@@ -74,18 +73,19 @@ imshow(holo)
 title(holo, 'hologram')
 figure;
 imshow(absu2)
-imwrite(holo, 'C:\Users\84056\Desktop\phase test\3_0.105_0.075.png')
+imwrite(holo, 'C:\Users\84056\Desktop\phase test\usaf_8cm.png')
 
 %% Reconstruction
-clc; clear
+% clc; clear
 % phase = im2double(imread('C:\Users\84056\Desktop\phase test\3_0.105_0.075.png'));
-phase = im2double(imread('C:\Users\84056\Desktop\neural-3d-holography-main\results\green\slm_0.18_0.16.png'));
+% phase = im2double(imread('C:\Users\84056\Desktop\neural-3d-holography-main\results\green\slm_0.18_0.16.png'));
 % holo = rgb2gray(holo);
-pitch = 8e-6; % Pixel lenth, unit: mm
+phase = mod(angle(u1png+u3png)+pi, 2*pi)/(2*pi);
+pitch = 4e-3; % Pixel lenth, unit: 
 [M,N] = size(phase);
 W = M*pitch; % Lenth
 L = N*pitch; % Width
-lambda=532e-9;          
+lambda=532e-6;          
 k=2*pi/lambda;
 x1=-L/2:pitch:L/2-pitch;
 y1=-W/2:pitch:W/2-pitch;
@@ -97,7 +97,7 @@ fy1 = linspace(-1/2/pitch, 1/2/pitch-dfy, N);
 fx=-1/2/pitch:dfx:1/2/pitch-dfx;
 fy=-1/2/pitch:dfy:1/2/pitch-dfy;
 [fx,fy]=meshgrid(fx,fy);
-z = 0.1;
+z =100;
 % for z=100:105;
 figure;
 u1 = exp(1i*2*pi*phase);
