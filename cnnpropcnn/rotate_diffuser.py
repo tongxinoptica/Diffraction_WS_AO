@@ -36,7 +36,9 @@ def lens_transfer_function(shape, f, wavelength):
     FX, FY = np.meshgrid(fx, fy)
     H = np.exp(-1j * (np.pi * wavelength * f) * (FX ** 2 + FY ** 2))
     return fftshift(H)
-
+def lens_phase(X, Y, k, f):  # X and Y is space coordinate
+    len_p = (k * (X ** 2 + Y ** 2) / (2 * f)) % (2 * np.pi) + k * 1.4 * 0.003
+    return len_p  # (0 , 2pi)
 
 # 角谱传播函数
 def angular_spectrum_propagation(E, z, wavelength, dx):
@@ -67,10 +69,11 @@ gaussian_beam = A_0 * np.exp(-R**2 / spot_radius**2)
 
 # 生成旋转散射片的初始相位分布
 scatter_phase = np.random.rand(grid_size, grid_size) * 2 * np.pi
-
+scatter_amp = np.random.rand(grid_size, grid_size)
+scatter = 1 * np.exp(1j*scatter_phase)
 for t in range(frames):
-    amplitude = np.random.rand(grid_size, grid_size)
-    phase = np.random.rand(grid_size, grid_size) * 2 * np.pi
+    amplitude = np.random.rand(grid_size, grid_size) * 1
+    phase = np.random.rand(grid_size, grid_size) * 2 * np.pi * 0.5
     E0 = gaussian_beam * amplitude * np.exp(1j*phase)
 
 
@@ -86,16 +89,19 @@ for t in range(frames):
     # 透镜聚焦
     E1 = inverse_fourier_transform(fourier_transform(E0) * H_lens)
 
-    angle = t * (360 / frames)  # 计算旋转角度
-    rotated_phase = rotate(scatter_phase, angle, reshape=False, order=1)
-    S = np.exp(1j * rotated_phase)
-    E2 = E1 * S  # 经过旋转散射片后的电场分布
+    # angle = t * (360 / frames)  # 计算旋转角度
+    # rotated_phase = rotate(scatter, angle, reshape=False, order=1)
+
+    E2 = E1 * scatter  # 经过旋转散射片后的电场分布
+    top_rows = scatter[:4, :]
+    scatter[:-4, :] = scatter[4:, :]
+    scatter[-4:, :] = top_rows
 
     # 自由空间传播（角谱方法）
     E3 = angular_spectrum_propagation(E2, propagation_distance, wavelength, dx)
 
     # 针孔滤波
-    pinhole_radius = 50e-6  # 针孔半径，单位：米
+    pinhole_radius = 100e-6  # 针孔半径，单位：米
     pinhole_mask = R <= pinhole_radius
     E4 = E3 * pinhole_mask  # 经过针孔后的电场分布
 
@@ -135,7 +141,7 @@ plt.show()
 
 # 计算空间相干性（互相干函数）
 coherence_length = 10e-6  # 互相干函数的计算范围
-coherence_points = 256  # 计算点数
+coherence_points = 400  # 计算点数
 
 
 def compute_coherence(intensity_avg):
@@ -155,15 +161,14 @@ def compute_coherence(intensity_avg):
     return coherence_function
 
 
-coherence = compute_coherence(intensity_avg)
+coherence = np.abs(compute_coherence(intensity_avg))
 
 # 绘制空间相干性
 plt.figure(figsize=(8, 8))
-plt.imshow(np.abs(coherence),
-           extent=(-coherence_length / 2, coherence_length / 2, -coherence_length / 2, coherence_length / 2),
-           cmap='hot')
-plt.colorbar()
-plt.title('Spatial Coherence after Rotating Scattering Plate and Pin-hole')
-plt.xlabel('x (m)')
-plt.ylabel('y (m)')
+plt.imshow(coherence / np.max(coherence),cmap='hot')
+# plt.colorbar()
+# plt.title('Spatial Coherence after Rotating Scattering Plate and Pin-hole')
+# plt.xlabel('x (m)')
+# plt.ylabel('y (m)')
 plt.show()
+plt.imsave(f'R={pinhole_radius}.png', coherence, cmap='hot')
