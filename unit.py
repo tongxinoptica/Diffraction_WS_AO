@@ -9,6 +9,7 @@ import numpy as np
 import cv2
 from skimage import draw
 
+
 def to_psnr(img1, img2):
     batch_img, channel_img, H_img, W_img = img1.shape[0], img1.shape[1], img1.shape[2], img1.shape[3]
     mse_list = []
@@ -103,11 +104,9 @@ def phasemap_8bit(phasemap, inverted=False):
         phase_out_8bit = ((1 - output_phase) * 255).round().cpu().detach().squeeze().numpy().astype(
             np.uint8)  # quantized to 8 bits
     else:
-        phase_out_8bit = ((output_phase) * 255).round().cpu().detach().squeeze().numpy().astype(
+        phase_out_8bit = (output_phase*255).round().cpu().detach().squeeze().numpy().astype(
             np.uint8)  # quantized to 8 bits
     return phase_out_8bit
-
-
 
 
 def gaussian_window(size, sigma):
@@ -170,7 +169,6 @@ def sobel_grad(img, device):  # Tensor (batch, channel, high, weight)
 
 
 def pad_tensor(input_tensor, target_height, target_width, pad_value=0):
-
     input_shape = input_tensor.shape
     if len(input_shape) == 2:  # (H, W)
         C = 1
@@ -190,8 +188,8 @@ def pad_tensor(input_tensor, target_height, target_width, pad_value=0):
 
     return padded_tensor
 
-def pad_array(input_array, target_height, target_width, pad_value=0):
 
+def pad_array(input_array, target_height, target_width, pad_value=0):
     input_shape = input_array.shape
     if len(input_shape) == 2:  # (H, W)
         H, W = input_shape
@@ -200,7 +198,7 @@ def pad_array(input_array, target_height, target_width, pad_value=0):
     elif len(input_shape) == 3:  # (C, H, W)
         C, H, W = input_shape
     else:
-        raise ValueError("Shape of Input must be 2d or 3d")
+        B, C, H, W = input_shape
 
     # 计算每边的padding大小
     pad_left = (target_width - W) // 2
@@ -214,6 +212,7 @@ def pad_array(input_array, target_height, target_width, pad_value=0):
 
     return padded_array
 
+
 def rotate_array(img, degree):
     (h, w) = img.shape[:2]
     center = (w // 2, h // 2)
@@ -221,5 +220,3 @@ def rotate_array(img, degree):
     M = cv2.getRotationMatrix2D(center, angle, 1.0)
     rotated = cv2.warpAffine(img, M, (w, h))
     return rotated
-
-
