@@ -179,7 +179,7 @@ def pad_tensor(input_tensor, target_height, target_width, pad_value=0):
     elif len(input_shape) == 3:  # (C, H, W)
         C, H, W = input_shape
     else:
-        raise ValueError("Shape of Input must be 2d or 3d")
+        B, C, H, W = input_shape
 
     pad_left = (target_width - W) // 2
     pad_right = target_width - W - pad_left
