@@ -9,6 +9,8 @@ $ python main.py --method=DPAC
 
 import sys
 
+import matplotlib.pyplot as plt
+
 sys.path.append('../code')
 import os, imageio, torch, math
 import numpy as np
@@ -22,7 +24,7 @@ import scipy.io as sio
 from utils.image_loader import ImageLoader
 from modules import DPAC, SGD, HOGD
 from propagation_ASM import Propagator
-from utils.physical_prop_module import PhysicalProp
+# from utils.physical_prop_module import PhysicalProp
 import utils.utils as utils
 
 # Commandline arguments
@@ -48,7 +50,7 @@ p.add_argument('--citl_x_offset', type=int, default=3,
     help='X offset for Camera-in-the-loop sampling with HOGD in [0, 6)')
 p.add_argument('--preblur_sigma', type=float, default=0.0,
     help='Blur to apply at SLM before performing DPAC')
-p.add_argument('--lr', type=float, default=0.03,
+p.add_argument('--lr', type=float, default=0.01,
     help='learning rate for phase with SGD, HOGD')
 p.add_argument('--lr_s', type=float, default=0.0,
     help='learning rate for scale factor with SGD, HOGD, \
@@ -59,13 +61,13 @@ p.add_argument('--pad_multiplier', type=float, default=-1,
     help='Amount of padding as multiple of FOV kernel')
 p.add_argument('--init_range', type=float, default=2.5,
     help='multiplier to init phase for SGD, HOGD')
-p.add_argument('--num_iters', type=int, default=2500,
+p.add_argument('--num_iters', type=int, default=5000,
     help='Number of iterations for SGD, HOGD')
 p.add_argument('--channel', type=int, default=None,
     help='if set, generate for single plane at that channel')
 p.add_argument('--img_idx', type=int, default=None,
     help='If set, index of image to generate phase pattern for')
-p.add_argument('--prop_dist', type=float, default=0.1,
+p.add_argument('--prop_dist', type=float, default=0.08,
     help='distance from SLM to target plane in mm')
 p.add_argument('--pixel_pitch', type=float, default=None,
     help='pixel pitch of SLM in micrometers')
@@ -117,7 +119,8 @@ if (opt.img_idx is not None) and (opt.img_idx == 0):
     print(f'Adjusted ROI {roi_res} for Homography Pattern')
 chan_str = ('red', 'green', 'blue')
 channels = [opt.channel] if opt.channel is not None else range(3)
-device = torch.device('cuda:3')
+device = torch.device('cuda:2')
+print(device)
 exposure_list = [0.3, 0.5, 1.4]
 if opt.prop_dist is not None:
     prop_dist = [opt.prop_dist, opt.prop_dist, opt.prop_dist]
@@ -257,8 +260,9 @@ for sample in tqdm(loader):
                     final_amps.append(final_amp)
                     total_loss += loss_val*(1.0/len(channels))
                 else:
-                    slm_phase = algorithm(target_amp, init_phase,
+                    slm_phase, rec_amp = algorithm(target_amp, init_phase,
                         foveation_mask=foveation_mask)
+
             else:
                 if opt.CITL:
                     loss_val, final_amp, slm_phase = algorithm(target_amp, init_phase)
@@ -271,15 +275,18 @@ for sample in tqdm(loader):
             # direct methods
             slm_phase = algorithm(target_amp)
         propagator = None
-        slm_phases.append(slm_phase)
+        # slm_phases.append(slm_phase)
 
         # Format and save phases for SLM
         # 8bit phase
-        phase_out_8bit = utils.phasemap_8bit(slm_phase, inverted=True)
+        phase_out_8bit = utils.phasemap_8bit(slm_phase, inverted=False)
         final_outfolder = os.path.join(summaries_dir, f'final_phase_{idx}')
         utils.cond_mkdir(final_outfolder)
         imageio.imwrite(os.path.join(final_outfolder, f'{chan_str[c]}.png'),
             phase_out_8bit)
+        plt.imshow(rec_amp[0][0].detach().cpu().numpy(), cmap='gray')
+        plt.show()
+
         
     if opt.CITL:
         final_amps = torch.cat(final_amps, 1).cpu().detach().numpy()[0,...]

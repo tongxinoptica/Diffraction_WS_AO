@@ -41,7 +41,7 @@ class ImageLoader:
     idxs: the index for the image to load
     """
     def __init__(self, data_path, channel=None, batch_size=1,
-        image_res=(1080, 1920), idx_subset=None, device=torch.device('cuda:3')):
+        image_res=(1080, 1920), idx_subset=None, device=torch.device('cuda:2')):
 
         if not os.path.isdir(data_path):
             raise NotADirectoryError(f'Data folder: {data_path}')

@@ -204,7 +204,7 @@ class HOGD(nn.Module):
             with dimensions  [1, 1, *slm_res]
         """
 
-        final_phase = higher_order_gradient_descent(init_phase, target_amp,
+        final_phase, rec_amp = higher_order_gradient_descent(init_phase, target_amp,
             masks, self.num_iters, self.phase_path, self.prop,
             tb_prefix=self._tb_prefix, loss=self.loss, lr=self.lr,
             lr_s=self.lr_s, s0=self.s0, camera_prop=self.camera_prop,
@@ -215,7 +215,7 @@ class HOGD(nn.Module):
             downsampled_loss=self.downsampled_loss,
             foveation_mask=foveation_mask)
 
-        return final_phase
+        return final_phase, rec_amp
 
     @property
     def tb_prefix(self):

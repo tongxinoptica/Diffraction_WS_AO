@@ -3,6 +3,9 @@
 This is the algorithm script used to compute phase patterns - DPAC, SGD, HOGD
 """
 import sys
+
+from tqdm import tqdm
+
 sys.path.append("../")
 import torch, math
 import torch.nn as nn
@@ -234,7 +237,9 @@ def higher_order_gradient_descent(init_phase, target_amp, masks, num_iters,
     NaN_found = False
 
     # run the iterative algorithm
-    for k in range(num_iters):
+    loss_fn = torch.nn.MSELoss()
+    pbar = tqdm(range(num_iters))
+    for k in pbar:
         if camera_prop is not None:
             print(k)
             
@@ -270,6 +275,7 @@ def higher_order_gradient_descent(init_phase, target_amp, masks, num_iters,
                     s = ((out_amp*masks)*(target_amp*masks)).sum().detach()/ \
                         ((out_amp*masks)**2).sum().detach()
         out_amp = s*out_amp
+        # lossValue = loss_fn(out_amp, target_amp)
 
         # calculate loss and backprop
         if camera_prop is not None:
@@ -291,29 +297,30 @@ def higher_order_gradient_descent(init_phase, target_amp, masks, num_iters,
             loss_periphery = utils.memory_efficient_loss(periphery_target_amp,
                 out_amp, loss, masks=periphery_mask, reduction_factor=6,
                 downsampled_loss=downsampled_loss)
-            
-            lossValue = loss_foveated + loss_periphery
 
+            lossValue = loss_foveated + loss_periphery
+        pbar.set_postfix(loss=f'{lossValue:.6f}')
         lossValue.backward()
         optimizer.step()
 
+
         # write to tensorboard / save intermediate phases
-        with torch.no_grad():
-            if writer is not None:
-                if k % 50 == 0:
-                    writer.add_scalar(f'loss/{tb_prefix}', lossValue, k)
-                    writer.add_scalar(f'scalar/{tb_prefix}', s, k)
-                    if foveation_mask is not None:
-                        writer.add_scalar(f'loss_foveated/{tb_prefix}',
-                            loss_foveated, k)
-                        writer.add_scalar(f'loss_periphery/{tb_prefix}',
-                            loss_periphery, k)
-                if k % 250 == 0:
-                    phase_out_8bit = utils.phasemap_8bit(slm_phase,
-                        inverted=True)
-                    cv2.imwrite(f'{phase_path}_{k + 1}.png', phase_out_8bit)
+        # with torch.no_grad():
+        #     if writer is not None:
+        #         if k % 50 == 0:
+        #             writer.add_scalar(f'loss/{tb_prefix}', lossValue, k)
+        #             writer.add_scalar(f'scalar/{tb_prefix}', s, k)
+        #             if foveation_mask is not None:
+        #                 writer.add_scalar(f'loss_foveated/{tb_prefix}',
+        #                     loss_foveated, k)
+        #                 writer.add_scalar(f'loss_periphery/{tb_prefix}',
+        #                     loss_periphery, k)
+        #         if k % 250 == 0:
+        #             phase_out_8bit = utils.phasemap_8bit(slm_phase,
+        #                 inverted=True)
+        #             cv2.imwrite(f'{phase_path}_{k + 1}.png', phase_out_8bit)
                     
     if camera_prop is not None:
         print(f'loss {lossValue.item()}, PSNR {-10*np.log10(lossValue.item())}')
         return lossValue.item(), torch.clamp(out_amp, 0, 1), slm_phase
-    return slm_phase
+    return slm_phase, torch.abs(recon_field)

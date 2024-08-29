@@ -74,7 +74,7 @@ scatter = 1 * np.exp(1j*scatter_phase)
 for t in range(frames):
     amplitude = np.random.rand(grid_size, grid_size) * 1
     phase = np.random.rand(grid_size, grid_size) * 2 * np.pi * 0.5
-    E0 = gaussian_beam * amplitude * np.exp(1j*phase)
+    E0 = gaussian_beam * amplitude* np.exp(1j*phase)
 
 
     # 定义傅里叶变换和逆傅里叶变换函数
@@ -165,10 +165,10 @@ coherence = np.abs(compute_coherence(intensity_avg))
 
 # 绘制空间相干性
 plt.figure(figsize=(8, 8))
-plt.imshow(coherence / np.max(coherence),cmap='hot')
-# plt.colorbar()
+plt.imshow(coherence / np.max(coherence),cmap='jet')
+plt.colorbar()
 # plt.title('Spatial Coherence after Rotating Scattering Plate and Pin-hole')
 # plt.xlabel('x (m)')
 # plt.ylabel('y (m)')
 plt.show()
-plt.imsave(f'R={pinhole_radius}.png', coherence, cmap='hot')
+plt.imsave(f'R={pinhole_radius}.png', coherence, cmap='jet')

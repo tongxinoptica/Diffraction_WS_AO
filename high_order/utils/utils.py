@@ -206,24 +206,14 @@ def cond_mkdir(path):
         os.makedirs(path)
 
 
-def phasemap_8bit(phasemap, inverted=True):
-    """Convert a phasemap tensor into a numpy 8bit phasemap for SLM
-    Input
-    -----
-    :param phasemap: input phasemap tensor, in the range of [-pi, pi].
-    :param inverted: flag for if the phasemap is inverted.
-    Output
-    ------
-    :return phase_out_8bit: output phasemap, with uint8 dtype (in [0, 256))
-    """
-
-    out_phase = phasemap.cpu().detach().squeeze().numpy()
-    out_phase = ((out_phase + np.pi) % (2 * np.pi)) / (2 * np.pi)
+def phasemap_8bit(phasemap, inverted=False):
+    output_phase = ((phasemap + 2 * np.pi) % (2 * np.pi)) / (2 * np.pi)
     if inverted:
-        phase_out_8bit = ((1 - out_phase) * 256).round().astype(np.uint8) # change from 255 to 256
+        phase_out_8bit = ((1 - output_phase) * 256).round().cpu().detach().squeeze().numpy().astype(
+            np.uint8)  # quantized to 8 bits
     else:
-        phase_out_8bit = ((out_phase) * 256).round().astype(np.uint8)
-
+        phase_out_8bit = (output_phase*256).round().cpu().detach().squeeze().numpy().astype(
+            np.uint8)  # quantized to 8 bits
     return phase_out_8bit
 
 
